@@ -2,6 +2,8 @@
 
 *adv.* roughly, more or less, by eye.
 
+**Play: https://goshuajoh.github.io/daechung/**
+
 Five tiny hand-drawn games that test how good your eyeball is, hosted by **Kongi (콩이)**, a little bean-sprout mochi.
 
 ![home screen](docs/preview-home.png)
