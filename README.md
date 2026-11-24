@@ -23,6 +23,8 @@ In runs, each game scores up to **100 for accuracy + 20 speed bonus** (how much 
 
 The first time you meet a game (per device, or per player name in Party), you get a **how-to card**: a looping demo where a cartoon hand does the moves, plus three short numbered steps. Then you can take a **free practice try** that doesn't count: no timer, easier setup, and *training wheels* (the live angle / % / time is shown, a dashed circle to trace, the target colour stays in the corner, and so on). Returning players get a small "how do I play?" button on each title card instead. If someone stalls, a hand appears and points at what to touch. "show tutorials again" on the home screen resets all of this.
 
+![how-to card, a practice try with training wheels, and the help chip](docs/tutorial-preview.png)
+
 ## The games
 
 | game | what you do |
