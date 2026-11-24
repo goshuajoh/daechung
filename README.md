@@ -4,6 +4,10 @@
 
 Five tiny hand-drawn games that test how good your eyeball is, hosted by **Kongi (콩이)**, a little bean-sprout mochi.
 
+![home screen](docs/preview-home.png)
+
+![the five games on a phone](docs/preview-games.png)
+
 | # | game | what you do |
 |---|------|-------------|
 | 01 | **Angle Eye** 각도 | Drag an arm to make the angle you're given. Later rounds rotate the baseline. |
