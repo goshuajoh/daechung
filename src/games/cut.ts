@@ -2,7 +2,7 @@ import type { GameDef, Shell } from '../lib/shell';
 import type { Pen, Pt } from '../lib/pen';
 import { sfx } from '../lib/audio';
 import { BERRY, BUTTER, INK, LEAF, PEACH, PINK, WHITE } from '../lib/palette';
-import { clamp, easeOutBack, rand, randInt, shuffle } from '../lib/rng';
+import { clamp, easeOutBack, pick, rand, randInt } from '../lib/rng';
 
 interface Food {
   name: string;
@@ -139,7 +139,7 @@ function pickPercent(): number {
   }
 }
 
-let order: Food[] = [];
+let lastFood: Food | null = null;
 
 export const cut: GameDef = {
   id: 'cut',
@@ -148,7 +148,7 @@ export const cut: GameDef = {
   blurb: 'Cut it at exactly 37%. Your sibling is watching.',
   howto: 'Move the knife and <b>chop</b> so the <b>left</b> piece is exactly the % I ask for.',
   color: PEACH,
-  rounds: 5,
+  verb: 'slice it exactly!',
   ranks: [
     [470, 'Laser Cutter'],
     [410, 'Sushi Chef'],
@@ -169,9 +169,9 @@ export const cut: GameDef = {
     pen.text('37%', w * 0.2, h * 0.2, { size: Math.min(30, h * 0.18) });
   },
 
-  async play(g: Shell, round: number) {
-    if (round === 0) order = shuffle([...FOODS]);
-    const food = order[round % order.length];
+  async play(g: Shell) {
+    const food = pick(FOODS.filter((f) => f !== lastFood));
+    lastFood = food;
     const target = pickPercent();
     const lenK = rand(0.6, 0.86);
     const offK = rand(0, 1);
@@ -303,8 +303,9 @@ export const cut: GameDef = {
     window.addEventListener('keydown', key);
 
     const confirm = g.confirmButton('chop!', false);
+    let timedOut = false;
     try {
-      await confirm.pressed;
+      timedOut = await g.lockIn(confirm, 8);
     } finally {
       canvas.removeEventListener('pointermove', move);
       canvas.removeEventListener('pointerdown', down);
@@ -318,6 +319,7 @@ export const cut: GameDef = {
     await g.wait(1300);
     const guess = Math.round(knifeK * 1000) / 10;
     const err = Math.abs(guess - target);
+    if (timedOut && !aimed) return { score: 0, detail: `too slow! it was ${target}%` };
     const score = 100 * Math.pow(Math.max(0, 1 - err / 20), 1.3);
     return { score, detail: err < 0.5 ? `basically perfect: ${guess}%!` : `you cut ${guess}% — off by <b>${err.toFixed(1)}</b>` };
   },

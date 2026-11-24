@@ -46,7 +46,7 @@ export const angle: GameDef = {
   blurb: 'Drag the arm to the angle. No protractor allowed.',
   howto: "I'll say an angle, you <b>drag the arm</b> to make it. No peeking at numbers while you aim!",
   color: BUTTER,
-  rounds: 5,
+  verb: 'make the angle!',
   ranks: [
     [470, 'Human Protractor'],
     [420, 'Geometry Gremlin'],
@@ -63,10 +63,10 @@ export const angle: GameDef = {
     pen.text('73°', w * 0.18, h * 0.2, { size: Math.min(34, h * 0.2) });
   },
 
-  async play(g: Shell, round: number) {
+  async play(g: Shell, level: number) {
     const target = pickTarget();
-    const base = round < 2 ? 0 : round < 4 ? rand(0, 360) : rand(0, 360);
-    let open = round === 4 ? 180 : 0; // last round starts fully open, just to mess with you
+    const base = level < 2 ? 0 : rand(0, 360);
+    let open = level === 4 ? 180 : 0; // last round starts fully open, just to mess with you
     let touched = false;
     let dragging = false;
     let revealAt = 0;
@@ -165,7 +165,7 @@ export const angle: GameDef = {
 
     const confirm = g.confirmButton('lock it in', false);
     try {
-      await confirm.pressed;
+      await g.lockIn(confirm, 8);
     } finally {
       canvas.removeEventListener('pointerdown', down);
       canvas.removeEventListener('pointermove', move);
@@ -180,6 +180,7 @@ export const angle: GameDef = {
     sfx.whoosh(0.5);
     await g.wait(1300);
     const err = Math.abs(guess - target);
+    if (!touched) return { score: 0, detail: `too slow! it was ${target}°` };
     const score = 100 * Math.pow(Math.max(0, 1 - err / 30), 1.5);
     return { score, detail: err === 0 ? `exactly ${target}°!` : `you made ${guess}° — off by <b>${err}°</b>` };
   },

@@ -9,15 +9,25 @@ export function mulberry32(seed: number): () => number {
   };
 }
 
-export const rand = (min: number, max: number) => min + Math.random() * (max - min);
+/**
+ * Game randomness goes through R so a whole run can be replayed from a seed
+ * (daily challenge, party mode: everyone gets the same puzzles).
+ */
+let R: () => number = Math.random;
+export function seedRandom(seed: number | null) {
+  R = seed == null ? Math.random : mulberry32(seed);
+}
+export const random = () => R();
+
+export const rand = (min: number, max: number) => min + R() * (max - min);
 export const randInt = (min: number, max: number) => Math.floor(rand(min, max + 1));
-export const pick = <T>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)];
+export const pick = <T>(arr: readonly T[]): T => arr[Math.floor(R() * arr.length)];
 export const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 export function shuffle<T>(arr: T[]): T[] {
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(R() * (i + 1));
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;

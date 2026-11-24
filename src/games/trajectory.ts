@@ -2,7 +2,7 @@ import type { GameDef, Shell } from '../lib/shell';
 import type { Pen, Pt } from '../lib/pen';
 import { sfx } from '../lib/audio';
 import { BERRY, BUTTER, INK, MINT, PEACH, PINK, WHITE } from '../lib/palette';
-import { clamp, easeOutBack, rand } from '../lib/rng';
+import { clamp, easeOutBack, rand, random } from '../lib/rng';
 
 const VISIBLE = [0.55, 0.5, 0.44, 0.38, 0.32];
 
@@ -85,7 +85,7 @@ export const trajectory: GameDef = {
   blurb: 'The ball turns invisible mid-air. Call the landing spot.',
   howto: "I'll fling a ball. Halfway through it goes <b>invisible</b> — tap the ground where you think it'll land!",
   color: MINT,
-  rounds: 5,
+  verb: 'where will it land?',
   ranks: [
     [470, 'Physics Engine'],
     [410, 'Outfield Legend'],
@@ -113,9 +113,9 @@ export const trajectory: GameDef = {
     drawFlag(pen, w * 0.8, gy, PINK);
   },
 
-  async play(g: Shell, round: number) {
-    const dirX = round % 2 === 1 ? -1 : 1; // alternate sides
-    const visible = VISIBLE[round];
+  async play(g: Shell, level: number) {
+    const dirX = random() < 0.5 ? -1 : 1;
+    const visible = VISIBLE[level];
     const rnd = { land: rand(0.45, 0.92), apex: rand(0.45, 0.85), T: rand(1.3, 1.8) };
     let phase: 'ready' | 'fling' | 'fly' | 'guess' | 'reveal' = 'ready';
     let phaseAt = 0;
@@ -134,7 +134,7 @@ export const trajectory: GameDef = {
       return { gy, cx, path: makePath(tx, ty - 12, xL, gy, apexH, rnd.T) };
     };
 
-    g.say(`round ${round + 1}: it stays visible for about ${Math.round(visible * 100)}% of the flight.`, 'idle');
+    g.say(`it stays visible for about ${Math.round(visible * 100)}% of the flight.`, 'idle');
     const stage = g.stage;
 
     stage.draw = (pen, w, h, t) => {
@@ -218,7 +218,7 @@ export const trajectory: GameDef = {
       if (phase === 'guess' && guessX == null) pen.text('tap the ground!', w / 2, gy + 26, { size: 22, color: INK, alpha: 0.75 });
     };
 
-    await g.button('fling it!');
+    await g.ready('fling it!');
     phase = 'fling';
     phaseAt = stage.time;
     g.setMood('wow');
@@ -266,7 +266,7 @@ export const trajectory: GameDef = {
     window.addEventListener('keydown', key);
     const confirm = g.confirmButton('it lands here', false);
     try {
-      await confirm.pressed;
+      await g.lockIn(confirm, 7);
     } finally {
       canvas.removeEventListener('pointermove', move);
       canvas.removeEventListener('pointerdown', down);
@@ -284,7 +284,8 @@ export const trajectory: GameDef = {
     await g.wait(900);
 
     const { path } = layout(stage.w, stage.h);
-    const err = Math.abs((guessX ?? 0) - path.xL) / Math.abs(path.xL - path.x0);
+    if (guessX == null) return { score: 0, detail: 'too slow! no flag planted' };
+    const err = Math.abs(guessX - path.xL) / Math.abs(path.xL - path.x0);
     const score = 100 * Math.pow(Math.max(0, 1 - err / 0.3), 1.3);
     const pct = (err * 100).toFixed(1);
     return { score, detail: err < 0.01 ? 'right on the flag!!' : `off by <b>${pct}%</b> of the throw` };

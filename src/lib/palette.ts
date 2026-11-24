@@ -15,3 +15,8 @@ export const BERRY = '#e8697d';
 export const SHADOW = 'rgba(59,44,40,0.13)';
 
 export const PASTELS = [PEACH, BUTTER, MINT, SKY, LILAC, PINK] as const;
+
+export const APRICOT = '#ffcf9e';
+export const AQUA = '#b2e4dc';
+export const LIME = '#d6ec9c';
+export const ROSE = '#f4b8d8';

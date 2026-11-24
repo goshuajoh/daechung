@@ -17,6 +17,11 @@ class Sfx {
   /** Must be called from a user gesture at least once. */
   ensure(): AudioContext {
     if (!this.ctx) {
+      // iOS: let Web Audio play even with the ringer switch on silent.
+      const nav = navigator as Navigator & { audioSession?: { type: string } };
+      try {
+        if (nav.audioSession) nav.audioSession.type = 'playback';
+      } catch { /* not supported */ }
       const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new AC();
       this.master = this.ctx.createGain();

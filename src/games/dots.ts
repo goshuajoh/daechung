@@ -2,7 +2,7 @@ import type { GameDef, Shell } from '../lib/shell';
 import type { Pen } from '../lib/pen';
 import { sfx } from '../lib/audio';
 import { BERRY, BUTTER, INK, LILAC, MINT, PEACH, PINK, SKY, WHITE } from '../lib/palette';
-import { clamp, easeOutBack, pick, rand, randInt } from '../lib/rng';
+import { clamp, easeOutBack, pick, rand, randInt, random } from '../lib/rng';
 
 interface Bean { x: number; y: number; r: number; c: string; seed: number; tilt: number; face: boolean }
 
@@ -13,7 +13,6 @@ const RANGES: [number, number, boolean][] = [
   [62, 98, false],
   [95, 150, true],
 ];
-const FLASH = 5;
 const COLORS = [PEACH, BUTTER, MINT, SKY, LILAC, PINK];
 let thumbBeans: Bean[] | undefined;
 
@@ -29,17 +28,17 @@ function scatter(n: number, aspect: number, clumpy: boolean): Bean[] {
     if (++tries % 4000 === 0) shrink *= 0.9;
     const r = base * rand(0.75, 1.2) * shrink;
     let x: number, y: number;
-    if (clumpy && Math.random() < 0.7) {
+    if (clumpy && random() < 0.7) {
       const [cx, cy] = pick(centers);
-      x = cx + (Math.random() + Math.random() + Math.random() - 1.5) * 0.25;
-      y = cy + (Math.random() + Math.random() + Math.random() - 1.5) * 0.3;
+      x = cx + (random() + random() + random() - 1.5) * 0.25;
+      y = cy + (random() + random() + random() - 1.5) * 0.3;
     } else {
       x = rand(r, aspect - r);
       y = rand(r, 1 - r);
     }
     if (x < r || x > aspect - r || y < r || y > 1 - r) continue;
     if (out.some((b) => Math.hypot(b.x - x, b.y - y) < b.r + r + 0.012)) continue;
-    out.push({ x, y, r, c: pick(COLORS), seed: 500 + out.length, tilt: rand(-0.4, 0.4), face: Math.random() < 0.35 });
+    out.push({ x, y, r, c: pick(COLORS), seed: 500 + out.length, tilt: rand(-0.4, 0.4), face: random() < 0.35 });
   }
   return out;
 }
@@ -58,9 +57,9 @@ export const dots: GameDef = {
   name: 'Quick Count',
   kr: '몇 개?',
   blurb: 'A pile of beans flashes for 5 seconds. How many?',
-  howto: "Beans will show up for <b>5 seconds</b>. Don't count one by one — just guess how many!",
+  howto: "Beans will flash on screen for <b>a few seconds</b>. Don't count one by one — just guess how many!",
   color: SKY,
-  rounds: 5,
+  verb: 'how many beans?',
   ranks: [
     [460, 'Bean Counter (Pro)'],
     [400, 'Jellybean Jar Champion'],
@@ -83,8 +82,9 @@ export const dots: GameDef = {
     if (vis > 0.82) pen.text('?', w / 2, h / 2, { size: h * 0.4, alpha: clamp((vis - 0.82) * 10, 0, 1) });
   },
 
-  async play(g: Shell, round: number) {
-    const [lo, hi, clumpy] = RANGES[round];
+  async play(g: Shell, level: number) {
+    const [lo, hi, clumpy] = RANGES[level];
+    const FLASH = g.quick ? 3 : 5;
     const n = randInt(lo, hi);
     const stage = g.stage;
     const top = 62;
@@ -143,8 +143,8 @@ export const dots: GameDef = {
       pen.text(String(counted), w / 2, 34, { size: 40, outline: WHITE });
     };
 
-    g.say(`round ${round + 1}: somewhere between a few and a lot.`, 'idle');
-    await g.button('show me');
+    g.say(`you get <b>${FLASH} seconds</b>. don't count — estimate!`, 'idle');
+    await g.ready('show me');
     phase = 'show';
     phaseAt = stage.time;
     g.setMood('wow');
@@ -179,9 +179,11 @@ export const dots: GameDef = {
       }),
     );
     if (matchMedia('(pointer: fine)').matches) setTimeout(() => input.focus(), 50);
-    await confirm.pressed;
-    const guess = Math.round(Number(input.value));
+    const timedOut = await g.lockIn(confirm, 10);
+    const typed = input.value.trim() !== '';
+    const guess = typed ? Math.round(Number(input.value)) : 0;
     panel.remove();
+    input.blur();
 
     // ——— reveal: count them back in ———
     phase = 'count';
@@ -201,6 +203,7 @@ export const dots: GameDef = {
     });
     await g.wait(400);
     const rel = Math.abs(guess - n) / n;
+    if (timedOut && !typed) return { score: 0, detail: `too slow! there were <b>${n}</b>` };
     const score = 100 * Math.pow(Math.max(0, 1 - rel / 0.5), 1.2);
     return {
       score,

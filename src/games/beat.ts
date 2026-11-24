@@ -14,7 +14,6 @@ const PLAN: Plan[] = [
   { mode: 'keep', bpm: [128, 146], listen: 8, gap: 0 },
   { mode: 'silent', bpm: [78, 92], listen: 4, gap: 8 },
 ];
-const YOUR_TAPS = 8;
 
 /** Map a performance.now() timestamp to the AudioContext time that was *audible* at that moment. */
 function heardAt(ctx: AudioContext, perfMs: number): number {
@@ -71,7 +70,8 @@ export const beat: GameDef = {
   blurb: 'The music stops. Your inner metronome keeps going… right?',
   howto: "I'll drum a beat. When I <b>stop</b>, you keep it going — tap the stage (or any key). Turn your sound on!",
   color: PINK,
-  rounds: 5,
+  verb: 'keep the beat!',
+  untimed: true,
   ranks: [
     [460, 'Human Metronome'],
     [400, 'Session Drummer'],
@@ -97,8 +97,11 @@ export const beat: GameDef = {
     }
   },
 
-  async play(g: Shell, round: number) {
-    const plan = PLAN[round];
+  async play(g: Shell, level: number) {
+    // Runs use one bar instead of two so the whole thing stays snappy.
+    const base = PLAN[level];
+    const plan = g.quick && base.mode === 'keep' ? { ...base, listen: 4 } : base;
+    const YOUR_TAPS = g.quick ? 4 : 8;
     const bpm = randInt(plan.bpm[0], plan.bpm[1]);
     const iv = 60 / bpm;
     const ctx = sfx.ensure();
@@ -114,7 +117,7 @@ export const beat: GameDef = {
     const notes: Note[] = [];
 
     if (plan.mode === 'keep') {
-      g.say(`<b>${bpm} BPM</b>. listen to 8 beats, then <b>keep tapping</b> 8 more on your own.`, 'listen');
+      g.say(`<b>${bpm} BPM</b>. listen to ${plan.listen} beats, then <b>keep tapping</b> ${YOUR_TAPS} more on your own.`, 'listen');
     } else {
       g.say(`only ${plan.listen} clicks this time. keep counting in your head and <b>tap once on beat ${tapBeat + 1}</b>.`, 'focus');
     }
@@ -186,7 +189,7 @@ export const beat: GameDef = {
     let drawReveal: (pen: Pen, w: number, h: number) => void = () => {};
 
     // ——— start ———
-    await g.button(plan.mode === 'keep' ? 'play the beat' : 'play');
+    await g.ready(plan.mode === 'keep' ? 'play the beat' : 'play');
     g.setMood(plan.mode === 'keep' ? 'listen' : 'focus');
     started = true;
     t0 = ctx.currentTime + 0.9;

@@ -4,21 +4,37 @@
 
 **Play: https://goshuajoh.github.io/daechung/**
 
-Five tiny hand-drawn games that test how good your eyeball is, hosted by **Kongi (콩이)**, a little bean-sprout mochi.
+Ten tiny hand-drawn mini-games that test how good your eyeball is, hosted by **Kongi (콩이)**, a little bean-sprout mochi.
 
 ![home screen](docs/preview-home.png)
 
 ![the five games on a phone](docs/preview-games.png)
 
-| # | game | what you do |
-|---|------|-------------|
-| 01 | **Angle Eye** 각도 | Drag an arm to make the angle you're given. Later rounds rotate the baseline. |
-| 02 | **Keep the Beat** 박자 | Listen to a beat, then keep tapping after it stops. Some rounds go silent and you tap a single far-off beat. |
-| 03 | **Fair Slice** 자르기 | Chop a kimbap / baguette / sausage / swiss roll / cucumber so the left piece is exactly N%. |
-| 04 | **Quick Count** 몇 개? | A pile of beans flashes for 5 seconds. Guess how many. |
-| 05 | **Where'd it Land?** 궤도 | A ball is flung and goes invisible mid-air. Tap where it will land. |
+## Ways to play
 
-Each game is 5 rounds × 100 points. Best scores are saved in your browser.
+- **Daily 대충**: all 10 mini-games back to back, each on a countdown. The puzzles come from today's date, so everyone gets the same run.
+- **Quick Run**: same format, random every time.
+- **Party**: pass the phone. 2–8 players get the identical run (5 or 10 games), then there's a podium and a "closest eyeball per game" list.
+- **Practice**: any single game, 5 rounds that get harder, no clock.
+
+In runs, each game scores up to **100 for accuracy + 20 speed bonus** (how much of the countdown was left).
+
+## The games
+
+| game | what you do |
+|------|-------------|
+| **Angle Eye** 각도 | Drag an arm to make the angle you're given. |
+| **Keep the Beat** 박자 | Listen to a beat, keep tapping after it stops. Some rounds go silent and you tap one far-off beat. |
+| **Fair Slice** 자르기 | Chop a kimbap / baguette / sausage / swiss roll / cucumber at exactly N%. |
+| **Quick Count** 몇 개? | A pile of beans flashes for a few seconds. Guess how many. |
+| **Where'd it Land?** 궤도 | A ball goes invisible mid-flight. Tap where it lands. |
+| **Perfect Circle** 동그라미 | Draw a circle around the dot in one stroke. |
+| **Inner Clock** 몇 초? | Stop the watch at exactly N seconds. It falls asleep after one. |
+| **Fill It Up** 붓기 | Hold to pour; let go at exactly N% full. One pour. |
+| **Dead Center** 중심 | Tap the exact center of a shape. Later ones only show an arc. |
+| **Color Recall** 색깔 | Memorize a colour, then find it again on a hue wheel. |
+
+Best scores are saved in your browser.
 
 ## Run it
 
@@ -46,4 +62,4 @@ No image assets and no emoji: everything is drawn in code.
 
 ## Adding a game
 
-Make a `GameDef` (see `src/lib/shell.ts`) with a `thumb()` for the home card and an async `play(shell, round)` that returns `{ score, detail }`. Register it in `src/main.ts`. The shell takes care of rounds, stickers, Kongi's reactions, the final card and best scores.
+Make a `GameDef` (see `src/lib/shell.ts`) with a `thumb()` for the home card and an async `play(shell, level)` that returns `{ score, detail }` for one challenge. Use `shell.lockIn(confirm, seconds)` (or `shell.clock(seconds)`) so it works on the countdown in runs, and draw randomness from `src/lib/rng.ts` so daily and party runs stay identical across players. Register it in `src/main.ts`; the modes in `src/modes.ts` / `src/party.ts` pick it up automatically.

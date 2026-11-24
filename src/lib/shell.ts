@@ -2,13 +2,12 @@ import { Stage } from './stage';
 import { drawKongi, type Mood } from './kongi';
 import { sfx } from './audio';
 import { icons } from './icons';
-import { getBest, saveScore } from './store';
-import type { Pen } from './pen';
-import { clamp, pick, rand } from './rng';
+import { clamp, pick, rand, seedRandom } from './rng';
 import { BLUSH, BUTTER, LILAC, MINT, PASTELS, PEACH, SKY } from './palette';
+import type { Pen } from './pen';
 
 export interface RoundResult {
-  /** 0..100 */
+  /** Accuracy, 0..100 */
   score: number;
   /** One short line about how close you were, e.g. "off by 3°". */
   detail: string;
@@ -20,22 +19,50 @@ export interface GameDef {
   kr: string;
   blurb: string;
   howto: string;
+  /** Short shout for the title card in runs, e.g. "make the angle!" */
+  verb: string;
   color: string;
-  rounds: number;
-  /** [minimum total, title], highest first. */
+  /** Has its own timing, so no countdown bar (speed bonus is flat). */
+  untimed?: boolean;
+  /** Practice ranks: [minimum total out of 500, title], highest first. */
   ranks: [number, string][];
   thumb(pen: Pen, w: number, h: number, t: number): void;
-  play(g: Shell, round: number): Promise<RoundResult>;
+  /** One challenge. `level` 0..4 is difficulty. */
+  play(g: Shell, level: number): Promise<RoundResult>;
+}
+
+export interface Step {
+  game: GameDef;
+  level: number;
+}
+
+export interface StepResult {
+  game: GameDef;
+  acc: number;
+  bonus: number;
+  detail: string;
+}
+
+export interface FrameOpts {
+  title: string;
+  kr: string;
+  color: string;
+  steps: number;
+  /** Run mode: countdowns, speed bonus, title cards, quick variants, auto-advance. */
+  timed: boolean;
+  player?: { name: string; body: string };
 }
 
 export const isAbort = (e: unknown) => e instanceof DOMException && e.name === 'AbortError';
 
-const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', html = '') => {
+export const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', html = '') => {
   const n = document.createElement(tag);
   if (cls) n.className = cls;
   if (html) n.innerHTML = html;
   return n;
 };
+
+export const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 export function muteButton(): HTMLButtonElement {
   const b = el('button', 'icon-btn mute');
@@ -63,18 +90,22 @@ const STICKERS: [number, string, string, string][] = [
 interface Confetto { x: number; y: number; vy: number; vx: number; r: number; vr: number; kind: number; c: string; s: number }
 
 /**
- * The frame around every game: top bar, canvas stage, Kongi's speech dock,
- * round flow, score stickers and the final card.
+ * The frame around every mini-game: top bar, canvas stage, Kongi's speech dock,
+ * countdown bar, score stickers. Modes (practice / run / party) drive it.
  */
 export class Shell {
   readonly root: HTMLElement;
   readonly stage: Stage;
   readonly overlay: HTMLElement;
+  readonly timed: boolean;
   private kongi: Stage;
   private bubble: HTMLElement;
   private actions: HTMLElement;
-  private pips: HTMLElement;
+  private progress: HTMLElement;
   private totalEl: HTMLElement;
+  private titleEl: HTMLElement;
+  private timebar: HTMLElement;
+  private timefill: HTMLElement;
   private ac = new AbortController();
   private moodTimer = 0;
   private baseMood: Mood = 'idle';
@@ -83,19 +114,28 @@ export class Shell {
   /** Games can set this to 1 to make Kongi bounce; it decays by itself. */
   bop = 0;
   total = 0;
-  scores: number[] = [];
+  /** Fraction of the countdown left when the player locked in (null = no clock ran). */
+  timeLeft: number | null = null;
+  private clockLive = false;
+  private clockT0 = 0;
+  private clockDur = 0;
+  private clockRaf = 0;
 
-  constructor(parent: HTMLElement, readonly def: GameDef, private exit: () => void) {
+  constructor(parent: HTMLElement, readonly opts: FrameOpts, private exit: () => void) {
+    this.timed = opts.timed;
     this.root = el('section', 'screen game');
-    this.root.style.setProperty('--c', def.color);
+    this.root.style.setProperty('--c', opts.color);
     this.root.innerHTML = `
       <header class="topbar">
-        <button class="icon-btn back" aria-label="Back to all games">${icons.back}</button>
-        <div class="game-title"><b>${def.name}</b><span>${def.kr}</span></div>
-        <div class="pips" aria-hidden="true"></div>
+        <button class="icon-btn back" aria-label="Back to home">${icons.back}</button>
+        <div class="game-title"></div>
+        <div class="progress" aria-hidden="true"></div>
         <div class="score-chip" title="total score"><span class="total">0</span></div>
       </header>
-      <div class="stage-wrap"><div class="overlay"></div></div>
+      <div class="timebar" aria-hidden="true"><i></i></div>
+      <div class="stage-wrap">
+        <div class="overlay"></div>
+      </div>
       <footer class="dock">
         <div class="kongi-slot"></div>
         <div class="bubble" aria-live="polite"></div>
@@ -106,14 +146,19 @@ export class Shell {
     this.overlay = $('.overlay');
     this.bubble = $('.bubble');
     this.actions = $('.actions');
-    this.pips = $('.pips');
+    this.progress = $('.progress');
     this.totalEl = $('.total');
+    this.titleEl = $('.game-title');
+    this.timebar = $('.timebar');
+    this.timefill = $('.timebar i');
     $('.topbar').appendChild(muteButton());
     $('.back').addEventListener('click', () => {
       sfx.click();
       this.exit();
     });
-    for (let i = 0; i < def.rounds; i++) this.pips.appendChild(el('i'));
+    if (opts.steps <= 6) for (let i = 0; i < opts.steps; i++) this.progress.appendChild(el('i'));
+    else this.progress.classList.add('count');
+    this.setHeader(opts.title, opts.kr, opts.color);
 
     const wrap = $('.stage-wrap');
     this.stage = new Stage(wrap, 'stage');
@@ -122,7 +167,7 @@ export class Shell {
     this.kongi = new Stage($('.kongi-slot'), 'kongi-mini');
     this.kongi.draw = (pen, w, h, t, dt) => {
       this.bop = Math.max(0, this.bop - dt * 5);
-      drawKongi(pen, w / 2, h - 6, Math.min(w * 0.72, h * 0.8), this.mood, t, { look: this.look, bop: this.bop });
+      drawKongi(pen, w / 2, h - 6, Math.min(w * 0.72, h * 0.8), this.mood, t, { look: this.look, bop: this.bop, body: opts.player?.body });
     };
 
     this.onKey = this.onKey.bind(this);
@@ -131,6 +176,11 @@ export class Shell {
 
   get signal() {
     return this.ac.signal;
+  }
+
+  /** Runs use quicker variants (shorter flashes, fewer beats). */
+  get quick() {
+    return this.timed;
   }
 
   private onKey(e: KeyboardEvent) {
@@ -144,11 +194,42 @@ export class Shell {
 
   destroy() {
     this.ac.abort();
+    this.stopClock();
+    seedRandom(null);
     window.removeEventListener('keydown', this.onKey);
     clearTimeout(this.moodTimer);
     this.stage.destroy();
     this.kongi.destroy();
     this.root.remove();
+  }
+
+  /* ——— header ——— */
+
+  setHeader(name: string, kr: string, color: string) {
+    const who = this.opts.player ? `<em class="who" style="--pc:${this.opts.player.body}">${esc(this.opts.player.name)}</em>` : '';
+    this.titleEl.innerHTML = `${who}<b>${name}</b><span>${kr}</span>`;
+    this.root.style.setProperty('--c', color);
+  }
+
+  resetTotal() {
+    this.total = 0;
+    this.totalEl.textContent = '0';
+  }
+
+  setProgress(i: number) {
+    if (this.progress.classList.contains('count')) {
+      this.progress.textContent = i < this.opts.steps ? `${i + 1}/${this.opts.steps}` : `${this.opts.steps}/${this.opts.steps}`;
+      return;
+    }
+    [...this.progress.children].forEach((p, k) => (p.className = k < i ? 'done' : k === i ? 'now' : ''));
+  }
+
+  private bumpTotal(to: number) {
+    countUp(this.totalEl, to, 600, this.signal);
+    const chip = this.totalEl.parentElement!;
+    chip.classList.remove('bump');
+    void chip.offsetWidth;
+    chip.classList.add('bump');
   }
 
   /* ——— Kongi ——— */
@@ -188,7 +269,6 @@ export class Shell {
         if (settled) return;
         settled = true;
         this.signal.removeEventListener('abort', onAbort);
-        // cleanup may not exist yet if done() fired synchronously
         queueMicrotask(() => cleanup?.());
         resolve(v);
       });
@@ -226,7 +306,12 @@ export class Shell {
     return this.choose([label]).then(() => undefined);
   }
 
-  /** A button that stays until the returned promise is used; for "lock it in" style confirms. */
+  /** In practice: a button to start. In runs: just a beat, the title card already said "ready". */
+  ready(label: string) {
+    return this.timed ? this.wait(250) : this.button(label);
+  }
+
+  /** A confirm button whose enabled state the game controls. */
   confirmButton(label: string, enabled = true) {
     this.clearActions();
     const b = el('button', 'btn primary', `<span>${label}</span>`) as HTMLButtonElement;
@@ -243,115 +328,177 @@ export class Shell {
     return { el: b, pressed };
   }
 
-  /* ——— flow ——— */
+  /* ——— countdown ——— */
 
-  private setPip(r: number) {
-    [...this.pips.children].forEach((p, i) => {
-      p.className = i < r ? 'done' : i === r ? 'now' : '';
+  /** Starts the countdown bar; resolves when time runs out. Never resolves outside runs. */
+  clock(seconds: number): Promise<void> {
+    if (!this.timed) return new Promise(() => {});
+    this.stopClock();
+    this.clockT0 = performance.now();
+    this.clockDur = seconds * 1000;
+    this.clockLive = true;
+    this.timeLeft = null;
+    this.timebar.classList.add('on');
+    this.timebar.classList.remove('warn');
+    let lastSec = Math.ceil(seconds);
+    return new Promise<void>((resolve) => {
+      const step = () => {
+        if (!this.clockLive || this.signal.aborted) return;
+        const left = Math.max(0, 1 - (performance.now() - this.clockT0) / this.clockDur);
+        this.timefill.style.transform = `scaleX(${left})`;
+        const sec = Math.ceil(left * seconds);
+        if (left < 0.34 && sec !== lastSec) {
+          lastSec = sec;
+          this.timebar.classList.add('warn');
+          sfx.click();
+        }
+        if (left <= 0) {
+          this.clockLive = false;
+          this.timeLeft = 0;
+          sfx.boop();
+          resolve();
+          return;
+        }
+        this.clockRaf = requestAnimationFrame(step);
+      };
+      this.clockRaf = requestAnimationFrame(step);
     });
   }
 
-  private bumpTotal(to: number) {
-    const from = Number(this.totalEl.textContent) || 0;
-    const t0 = performance.now();
-    const step = () => {
-      const k = Math.min(1, (performance.now() - t0) / 600);
-      this.totalEl.textContent = String(Math.round(from + (to - from) * k));
-      if (k < 1 && !this.signal.aborted) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
-    this.totalEl.parentElement!.classList.remove('bump');
-    void this.totalEl.offsetWidth;
-    this.totalEl.parentElement!.classList.add('bump');
+  stopClock() {
+    if (!this.clockLive) return;
+    this.clockLive = false;
+    cancelAnimationFrame(this.clockRaf);
+    this.timeLeft = Math.max(0, 1 - (performance.now() - this.clockT0) / this.clockDur);
   }
 
-  async run(skipIntro = false) {
+  private hideClock() {
+    this.stopClock();
+    this.timebar.classList.remove('on', 'warn');
+  }
+
+  /** Wait for the confirm button or the countdown. Returns true if time ran out. */
+  async lockIn(confirm: { pressed: Promise<void> }, seconds: number): Promise<boolean> {
+    const timedOut = await Promise.race([confirm.pressed.then(() => false), this.clock(seconds).then(() => true)]);
+    this.stopClock();
+    this.clearActions();
+    if (timedOut) this.say("time's up!", 'sad');
+    return timedOut;
+  }
+
+  /* ——— flow ——— */
+
+  /** Draw a game's thumbnail big in the middle of the stage. */
+  showcase(def: GameDef, subtitle: string) {
+    this.stage.draw = (pen, w, h, t) => {
+      const bw = Math.min(w - 32, 440), bh = Math.min(h * 0.62, bw * 0.72);
+      const x = (w - bw) / 2, y = Math.max(76, (h - bh) / 2 + 30);
+      pen.text(def.name, w / 2, y - 44, { size: Math.min(44, w * 0.1) });
+      pen.text(subtitle, w / 2, y - 12, { size: 20, font: 'gaegu', alpha: 0.7 });
+      pen.ctx.save();
+      pen.ctx.translate(x, y);
+      def.thumb(pen, bw, bh, t);
+      pen.ctx.restore();
+    };
+  }
+
+  private async titleCard(def: GameDef, i: number) {
+    this.stage.draw = (pen, w, h, t) => {
+      def.thumb(pen, w, h, t);
+      // fade it back with a wash of paper (globalAlpha would break layered doodles)
+      pen.ctx.fillStyle = 'rgba(255, 250, 240, 0.68)';
+      pen.ctx.fillRect(0, 0, w, h);
+    };
+    const card = el('div', 'title-card', `<small>${i + 1} / ${this.opts.steps}</small><b>${def.name}</b><span>${def.verb}</span>`);
+    card.style.setProperty('--tc', def.color);
+    card.style.setProperty('--rot', `${(i % 2 ? 1 : -1) * rand(1.5, 3.5)}deg`);
+    this.overlay.appendChild(card);
+    this.say(def.verb, 'wow');
+    sfx.whoosh(0.3);
+    await Promise.race([
+      this.wait(1500),
+      this.until<void>((done) => {
+        card.addEventListener('pointerdown', () => done());
+      }),
+    ]);
+    card.classList.add('bye');
+    await this.wait(180);
+    card.remove();
+    this.setMood('idle');
+  }
+
+  /** Play a list of mini-games. Returns null if the player left. */
+  async playSteps(steps: Step[], seed: number | null): Promise<StepResult[] | null> {
+    const results: StepResult[] = [];
     try {
-      if (!skipIntro) await this.intro();
-      for (let r = 0; r < this.def.rounds; r++) {
-        this.setPip(r);
+      for (let i = 0; i < steps.length; i++) {
+        const { game, level } = steps[i];
+        if (this.timed) this.setHeader(game.name, game.kr, game.color);
+        this.setProgress(i);
         this.overlay.innerHTML = '';
         this.look = undefined;
         this.setMood('idle');
-        const res = await this.def.play(this, r);
-        const score = Math.round(clamp(res.score, 0, 100));
-        this.scores.push(score);
-        this.total += score;
+        this.clearActions();
+        if (this.timed) await this.titleCard(game, i);
+        this.timeLeft = null;
+        seedRandom(seed == null ? null : (seed * 7919 + (i + 1) * 104729 + level) | 0);
+        let res: RoundResult;
+        try {
+          res = await game.play(this, level);
+        } finally {
+          seedRandom(null);
+          this.hideClock();
+        }
+        const acc = Math.round(clamp(res.score, 0, 100));
+        const bonus = !this.timed ? 0 : game.untimed ? Math.round((10 * acc) / 100) : Math.round((20 * (this.timeLeft ?? 0) * acc) / 100);
+        results.push({ game, acc, bonus, detail: res.detail });
+        this.total += acc + bonus;
         this.bumpTotal(this.total);
-        await this.sticker(score, res.detail, r === this.def.rounds - 1);
+        await this.sticker(acc, bonus, res.detail, i === steps.length - 1);
       }
-      this.setPip(this.def.rounds);
-      await this.final();
+      this.setProgress(steps.length);
+      return results;
     } catch (e) {
-      if (!isAbort(e)) throw e;
+      if (isAbort(e)) return null;
+      throw e;
     }
   }
 
-  private async intro() {
-    const def = this.def;
-    this.stage.draw = (pen, w, h, t) => {
-      const bw = Math.min(w - 32, 440), bh = Math.min(h * 0.62, bw * 0.72);
-      const x = (w - bw) / 2, y = Math.max(70, (h - bh) / 2 + 30);
-      pen.text(def.name, w / 2, y - 44, { size: Math.min(44, w * 0.11) });
-      pen.text(`${def.kr}  ·  ${def.rounds} rounds`, w / 2, y - 12, { size: 20, font: 'gaegu', alpha: 0.7 });
-      const ctx = pen.ctx;
-      ctx.save();
-      ctx.translate(x, y);
-      def.thumb(pen, bw, bh, t);
-      ctx.restore();
-    };
-    this.say(def.howto, 'happy');
-    await this.button('start!');
-    sfx.ensure();
-  }
-
-  private async sticker(score: number, detail: string, last: boolean) {
-    const [, word, sub, color] = STICKERS.find(([min]) => score >= min)!;
-    const s = el('div', 'sticker', `<b>${score}</b><span>${word}</span>`);
+  private async sticker(acc: number, bonus: number, detail: string, last: boolean) {
+    const [, word, sub, color] = STICKERS.find(([min]) => acc >= min)!;
+    const s = el('div', 'sticker', `<b>${acc}</b><span>${word}</span>${bonus ? `<em>+${bonus} speed</em>` : ''}`);
     s.style.setProperty('--sc', color);
     s.style.setProperty('--rot', `${rand(-12, 10).toFixed(1)}deg`);
     this.overlay.appendChild(s);
-    if (score >= 80) sfx.ding();
-    else if (score >= 35) sfx.pop();
+    if (acc >= 80) sfx.ding();
+    else if (acc >= 35) sfx.pop();
     else sfx.boop();
-    const mood: Mood = score >= 90 ? 'cheer' : score >= 65 ? 'happy' : score >= 35 ? 'wow' : 'sad';
+    const mood: Mood = acc >= 90 ? 'cheer' : acc >= 65 ? 'happy' : acc >= 35 ? 'wow' : 'sad';
     this.setMood(mood, 2600);
     this.say(`${detail} <em>· ${sub}</em>`);
-    await this.button(last ? 'see results' : 'next round');
+    if (this.timed && !last) await Promise.race([this.button('next'), this.wait(2800)]);
+    else await this.button(last ? 'see results' : 'next round');
+    this.clearActions();
     s.classList.add('bye');
   }
 
-  private async final() {
-    const def = this.def;
-    const max = def.rounds * 100;
-    const isBest = saveScore(def.id, this.total);
-    const best = getBest(def.id) ?? this.total;
-    const rank = def.ranks.find(([min]) => this.total >= min)?.[1] ?? def.ranks[def.ranks.length - 1][1];
-    const ratio = this.total / max;
+  /* ——— finale helpers ——— */
 
+  card(html: string, cls = 'final-card') {
     this.overlay.innerHTML = '';
-    const card = el('div', 'final-card');
-    card.innerHTML = `
-      <div class="final-label">total</div>
-      <div class="final-total"><b>0</b><span>/${max}</span></div>
-      <div class="final-rank">“${rank}”</div>
-      <div class="bars">${this.scores
-        .map((s, i) => `<div class="bar" style="--h:${Math.max(6, s)}%;--d:${i * 90}ms"><i></i><span>${s}</span></div>`)
-        .join('')}</div>
-      <div class="final-best">${isBest ? '<em>new personal best!</em>' : `your best: ${best}`}</div>`;
-    this.overlay.appendChild(card);
-    const totalB = card.querySelector('.final-total b')!;
-    const t0 = performance.now();
-    const step = () => {
-      const k = Math.min(1, (performance.now() - t0) / 1100);
-      totalB.textContent = String(Math.round(this.total * (1 - Math.pow(1 - k, 3))));
-      if (k < 1 && !this.signal.aborted) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
+    const c = el('div', cls, html);
+    this.overlay.appendChild(c);
+    return c;
+  }
 
-    // confetti doodles behind the card
+  countUp(target: Element, to: number, ms = 1100) {
+    countUp(target, to, ms, this.signal);
+  }
+
+  /** Doodle confetti falling behind whatever card is showing. */
+  confetti(amount: number, extra?: (pen: Pen, w: number, h: number, t: number) => void) {
     const bits: Confetto[] = [];
-    const n = Math.round(10 + ratio * 50);
+    const n = Math.round(8 + clamp(amount, 0, 1) * 52);
     const { w } = this.stage;
     for (let i = 0; i < n; i++) {
       bits.push({
@@ -360,6 +507,7 @@ export class Shell {
       });
     }
     this.stage.draw = (pen, sw, sh, t, dt) => {
+      extra?.(pen, sw, sh, t);
       for (const b of bits) {
         b.y += b.vy * dt;
         b.x += (b.vx + Math.sin(t * 2 + b.r) * 20) * dt;
@@ -386,25 +534,18 @@ export class Shell {
         }
       }
     };
-
-    if (ratio >= 0.6) sfx.fanfare();
+    if (amount >= 0.6) sfx.fanfare();
     else sfx.ding();
-    this.setMood(ratio >= 0.75 ? 'cheer' : ratio >= 0.45 ? 'happy' : 'sad');
-    this.say(
-      ratio >= 0.85 ? 'okay that was <b>scary</b> good.' :
-      ratio >= 0.65 ? 'your eyeballs are well calibrated!' :
-      ratio >= 0.45 ? 'solidly 대충. respectable.' :
-      'that was very 대충. try again?',
-    );
-    const i = await this.choose([`${icons.again} again`, `${icons.home} all games`], 0);
-    if (i === 0) this.restart();
-    else this.exit();
   }
+}
 
-  private restart() {
-    this.total = 0;
-    this.scores = [];
-    this.totalEl.textContent = '0';
-    void this.run(true);
-  }
+export function countUp(target: Element, to: number, ms: number, signal?: AbortSignal) {
+  const from = Number(target.textContent) || 0;
+  const t0 = performance.now();
+  const step = () => {
+    const k = Math.min(1, (performance.now() - t0) / ms);
+    target.textContent = String(Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3))));
+    if (k < 1 && !signal?.aborted) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }

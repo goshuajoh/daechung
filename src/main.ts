@@ -1,30 +1,37 @@
 import './style.css';
 import { renderHome } from './home';
-import { Shell, type GameDef } from './lib/shell';
+import type { GameDef } from './lib/shell';
+import { startPractice, startRun } from './modes';
+import { startParty } from './party';
 import { angle } from './games/angle';
 import { beat } from './games/beat';
 import { cut } from './games/cut';
 import { dots } from './games/dots';
 import { trajectory } from './games/trajectory';
+import { circle } from './games/circle';
+import { stopwatch } from './games/stopwatch';
+import { pour } from './games/pour';
+import { center } from './games/center';
+import { color } from './games/color';
 
-const games: GameDef[] = [angle, beat, cut, dots, trajectory];
+export const games: GameDef[] = [angle, beat, cut, dots, trajectory, circle, stopwatch, pour, center, color];
 
 const app = document.getElementById('app')!;
 let cleanup: (() => void) | null = null;
+const home = () => (location.hash = '');
 
 function route() {
   cleanup?.();
   cleanup = null;
-  const id = location.hash.replace(/^#\/?/, '');
-  const game = games.find((g) => g.id === id);
+  const path = location.hash.replace(/^#\/?/, '');
   window.scrollTo(0, 0);
-  if (game) {
-    const shell = new Shell(app, game, () => (location.hash = ''));
-    cleanup = () => shell.destroy();
-    void shell.run();
-  } else {
-    cleanup = renderHome(app, games, (g) => (location.hash = `/${g.id}`));
+  if (path === 'daily' || path === 'run') cleanup = startRun(app, games, path === 'daily' ? 'daily' : 'quick', home);
+  else if (path === 'party') cleanup = startParty(app, games, home);
+  else if (path.startsWith('practice/')) {
+    const game = games.find((g) => g.id === path.slice(9));
+    if (game) cleanup = startPractice(app, game, home);
   }
+  if (!cleanup) cleanup = renderHome(app, games, (h) => (location.hash = `/${h}`));
 }
 
 // Line boil for DOM doodles: re-seed the SVG turbulence a few times a second.
