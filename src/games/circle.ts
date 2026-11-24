@@ -2,7 +2,8 @@ import type { GameDef, Shell } from '../lib/shell';
 import type { Pen, Pt } from '../lib/pen';
 import { sfx } from '../lib/audio';
 import { BERRY, INK, LILAC, MINT, WHITE } from '../lib/palette';
-import { clamp, easeOutBack, rand } from '../lib/rng';
+import { clamp, easeInOut, easeOutBack, lerp, rand } from '../lib/rng';
+import { drawHand, loop, span } from '../lib/hand';
 
 const TAU = Math.PI * 2;
 
@@ -91,7 +92,29 @@ export const circle: GameDef = {
     if (k >= 1) pen.text('96.4%', cx, cy + 26, { size: Math.min(26, h * 0.16), outline: WHITE });
   },
 
+  steps: ['press near the dot', 'draw <b>one loop</b> all the way around it', 'lift your finger. rounder = more points'],
+
+  demo(pen, w, h, t) {
+    const k = loop(t, 4.4);
+    const cx = w * 0.45, cy = h * 0.5, R = Math.min(w, h) * 0.34;
+    const prog = span(k, 0.14, 0.72);
+    const pts: Pt[] = [];
+    for (let a = 0; a <= prog * TAU * 1.03; a += 0.12) {
+      const r = R * (1 + Math.sin(a * 3 + 1) * 0.02);
+      pts.push([cx + Math.cos(a - 1.2) * r, cy + Math.sin(a - 1.2) * r]);
+    }
+    drawDot(pen, cx, cy, t);
+    if (pts.length > 1) drawStroke(pen.ctx, pts, cx, cy, k > 0.74 ? R : null);
+    const end: Pt = pts.length ? pts[pts.length - 1] : [cx + Math.cos(-1.2) * R, cy + Math.sin(-1.2) * R];
+    if (k < 0.14) {
+      const m = easeInOut(span(k, 0, 0.14));
+      drawHand(pen, lerp(w * 1.05, end[0], m), lerp(h * 1.15, end[1], m), { scale: 0.75 });
+    } else if (k < 0.82) drawHand(pen, end[0] + (k > 0.74 ? 10 : 0), end[1] - (k > 0.74 ? 10 : 0), { press: k < 0.74 ? 1 : 0, scale: 0.75 });
+    if (k > 0.76) pen.text('96%!', cx, cy + 24, { size: Math.min(28, h * 0.16), outline: WHITE });
+  },
+
   async play(g: Shell) {
+    const born = g.stage.time;
     const stage = g.stage;
     const off: Pt = [rand(-0.08, 0.08), rand(-0.06, 0.06)];
     const centre = (): Pt => [stage.w * (0.5 + off[0]), stage.h * (0.52 + off[1])];
@@ -101,10 +124,21 @@ export const circle: GameDef = {
     let doneAt = 0;
     let finish: (() => void) | null = null;
 
-    g.say('draw <b>one circle</b> around the dot. lift your finger to finish.', 'focus');
+    if (g.tutorial) g.say('press on the dashed line and <b>trace it all the way round</b> in one go. lift your finger at the end.', 'focus');
+    else g.say('draw <b>one circle</b> around the dot. lift your finger to finish.', 'focus');
 
     stage.draw = (pen, _w, _h, t) => {
       const [cx, cy] = centre();
+      const guideR = Math.min(_w, _h) * 0.3;
+      // training wheels: a dashed circle to trace over
+      if (g.tutorial && !verdict) {
+        pen.circle(cx, cy, guideR, { stroke: INK, width: 2.5, dash: [8, 9], alpha: 0.3, seed: 3 });
+        if (!pts.length) pen.text('trace me!', cx, cy - guideR - 16, { size: 20, font: 'gaegu', alpha: 0.6 });
+      }
+      if (!pts.length && !verdict && t - born > 1.2) {
+        const a = (t - born) * 2.2;
+        drawHand(pen, cx + Math.cos(a) * guideR, cy + Math.sin(a) * guideR, { press: 1, alpha: 0.75 });
+      }
       if (!pts.length && !verdict) {
         pen.text('draw around me', cx, cy - 30, { size: 20, font: 'gaegu', alpha: 0.55 + Math.sin(t * 3) * 0.2 });
       }

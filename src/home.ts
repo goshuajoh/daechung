@@ -1,6 +1,6 @@
 import { Stage } from './lib/stage';
 import { drawKongi, type Mood } from './lib/kongi';
-import { getBest } from './lib/store';
+import { forgetTutorials, getBest } from './lib/store';
 import { muteButton, type GameDef } from './lib/shell';
 import { sfx } from './lib/audio';
 import { today } from './modes';
@@ -104,10 +104,17 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
         .join('')}
     </ul>
     <footer class="home-foot">
-      <span>drawn with wobbly lines · scores stay on this device</span>
+      <span>drawn with wobbly lines · scores stay on this device ·</span>
+      <button class="link-btn reset-tut">show tutorials again</button>
     </footer>`;
   parent.appendChild(root);
   root.querySelector('.home-foot')!.prepend(muteButton());
+  const reset = root.querySelector<HTMLButtonElement>('.reset-tut')!;
+  reset.addEventListener('click', () => {
+    forgetTutorials();
+    sfx.pop();
+    reset.textContent = 'done! every game will teach you again';
+  });
 
   const stages: Stage[] = [];
   const mount = (host: Element, cls: string, draw: Stage['draw']) => {

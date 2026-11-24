@@ -2,7 +2,8 @@ import type { GameDef, Shell } from '../lib/shell';
 import type { Pen, Pt } from '../lib/pen';
 import { sfx } from '../lib/audio';
 import { BERRY, BUTTER, INK, PEACH, WHITE } from '../lib/palette';
-import { clamp, easeOutBack, easeOutCubic, rand, randInt } from '../lib/rng';
+import { clamp, easeInOut, easeOutBack, easeOutCubic, lerp, rand, randInt } from '../lib/rng';
+import { drawHand, drawPill, loop, span } from '../lib/hand';
 
 const D2R = Math.PI / 180;
 /** Screen direction for a math-style (counter-clockwise, y-up) angle in degrees. */
@@ -63,7 +64,32 @@ export const angle: GameDef = {
     pen.text('73°', w * 0.18, h * 0.2, { size: Math.min(34, h * 0.2) });
   },
 
+  steps: ['look at the number', 'drag the <b>orange ball</b> to make that angle', 'press <b>lock it in</b>'],
+
+  demo(pen, w, h, t) {
+    const k = loop(t, 4.6);
+    const L = Math.min(w * 0.38, h * 0.66);
+    const v: Pt = [w * 0.16, h * 0.62];
+    const open = 12 + easeInOut(span(k, 0.18, 0.58)) * 48;
+    drawAngle(pen, v, L, 0, open, { handle: k > 0.14 && k < 0.62 ? 1.3 : 1 });
+    pen.text('60°', w * 0.8, h * 0.2, { size: Math.min(32, h * 0.2) });
+    const [ax, ay] = dir(open);
+    const hx = v[0] + ax * L, hy = v[1] + ay * L;
+    const pill: Pt = [w * 0.78, h * 0.84];
+    const press = k > 0.72 && k < 0.8 ? 1 : 0;
+    drawPill(pen, pill[0], pill[1], 'lock it in', BUTTER, press);
+    if (k < 0.14) {
+      const m = easeInOut(span(k, 0, 0.14));
+      drawHand(pen, lerp(w * 1.05, hx, m), lerp(h * 1.15, hy, m), { scale: 0.8 });
+    } else if (k < 0.62) drawHand(pen, hx, hy, { press: 1, scale: 0.8 });
+    else {
+      const m = easeInOut(span(k, 0.62, 0.72));
+      drawHand(pen, lerp(hx, pill[0], m), lerp(hy, pill[1], m), { press, scale: 0.8, ripple: span(k, 0.72, 0.86) });
+    }
+  },
+
   async play(g: Shell, level: number) {
+    const born = g.stage.time;
     const target = pickTarget();
     const base = level < 2 ? 0 : rand(0, 360);
     let open = level === 4 ? 180 : 0; // last round starts fully open, just to mess with you
@@ -85,7 +111,8 @@ export const angle: GameDef = {
       return { v: [cx, cy] as Pt, L };
     };
 
-    g.say(`make a <b>${target}°</b> angle — drag the arm!`, 'focus');
+    if (g.tutorial) g.say(`drag the <b>orange ball</b> until the angle is <b>${target}°</b>. this time a number helps you!`, 'focus');
+    else g.say(`make a <b>${target}°</b> angle — drag the arm!`, 'focus');
     const stage = g.stage;
 
     stage.draw = (pen, w, h, t) => {
@@ -97,6 +124,11 @@ export const angle: GameDef = {
           const [ax, ay] = dir(base + open + 18);
           pen.text('drag me', v[0] + ax * L * 0.85, v[1] + ay * L * 0.85, { size: 20, font: 'gaegu', alpha: 0.6 + Math.sin(t * 4) * 0.3 });
         }
+        const [hx, hy] = dir(base + open);
+        // nudge: a hand on the ball if they haven't touched it yet
+        if (!touched && t - born > 1.2) drawHand(pen, v[0] + hx * L, v[1] + hy * L, { press: Math.sin(t * 4) * 0.5 + 0.5, alpha: 0.9 });
+        // training wheels: show the live angle
+        if (g.tutorial && touched) pen.text(`${Math.round(open)}°`, v[0] + hx * (L + 36), v[1] + hy * (L + 32), { size: 26, color: BERRY, outline: WHITE });
         return;
       }
       const k = clamp((t - revealAt) / 0.9, 0, 1);

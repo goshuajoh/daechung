@@ -3,6 +3,7 @@ import type { Pen } from '../lib/pen';
 import { sfx } from '../lib/audio';
 import { AQUA, BERRY, INK, PINK, WHITE } from '../lib/palette';
 import { clamp, easeOutBack, pick, rand, randInt } from '../lib/rng';
+import { drawHand, loop, span } from '../lib/hand';
 
 /** Seconds of the watch you get to see before it goes dark. */
 const PEEK = 1.0;
@@ -77,30 +78,55 @@ export const stopwatch: GameDef = {
     pen.text('5.00s', w * 0.18, h * 0.16, { size: Math.min(26, h * 0.15) });
   },
 
+  steps: ['tap once to <b>start</b> the watch', 'it falls asleep, so count in your head', 'tap again when you think time is up'],
+
+  demo(pen, w, h, t) {
+    const k = loop(t, 6.2);
+    const r = Math.min(w * 0.24, h * 0.3);
+    const cx = w * 0.4, cy = h * 0.56;
+    const running = k >= 0.1 && k < 0.72;
+    const el = k < 0.1 ? 0 : running ? ((k - 0.1) / 0.62) * 3.02 : 3.02;
+    const cover = running ? clamp((el - 1) / 0.35, 0, 1) : 0;
+    drawWatch(pen, cx, cy, r, el, cover, t, k >= 0.72 ? 3 : undefined);
+    pen.text('3s', w * 0.84, h * 0.16, { size: Math.min(30, h * 0.18) });
+    const read = k < 0.1 ? '0.00' : running && el > 1 ? '?.??' : `${el.toFixed(2)}s`;
+    pen.text(read, w * 0.84, h * 0.56, { size: 22, color: k >= 0.72 ? BERRY : INK });
+    if (running && el > 1) pen.text(['1…', '1… 2…', '1… 2… 3…'][Math.min(2, Math.floor(el))], w * 0.84, h * 0.76, { size: 17, font: 'gaegu', alpha: 0.75 });
+    const hx = cx + r * 0.25, hy = cy + r * 0.35;
+    if (k < 0.18) drawHand(pen, hx, hy, { press: k > 0.06 && k < 0.11 ? 1 : 0, ripple: span(k, 0.08, 0.18), scale: 0.75 });
+    else if (k > 0.6 && k < 0.84) drawHand(pen, hx, hy, { press: k > 0.68 && k < 0.73 ? 1 : 0, ripple: span(k, 0.7, 0.8), scale: 0.75 });
+  },
+
   async play(g: Shell, level: number) {
-    const T = target(level);
+    const T = g.tutorial ? 3 : target(level);
+    const peek = g.tutorial ? Infinity : PEEK;
+    const born = g.stage.time;
     const label = T % 1 ? T.toFixed(1) : String(T);
     let t0 = 0; // performance.now() at start
     let stoppedAt = 0; // seconds
     let phase: 'ready' | 'run' | 'done' = 'ready';
     let doneAt = 0;
 
-    g.say(`tap to start, tap again at exactly <b>${label} seconds</b>.`, 'focus');
+    if (g.tutorial) g.say(`tap the watch to <b>start</b>. watch the hand, and tap again when it reaches <b>${label}</b>. (next time it'll fall asleep!)`, 'focus');
+    else g.say(`tap to start, tap again at exactly <b>${label} seconds</b>.`, 'focus');
     const stage = g.stage;
     stage.draw = (pen, w, h, t) => {
       const r = Math.min(w * 0.34, h * 0.3, 150);
       const cx = w / 2, cy = h * 0.55;
       const el = phase === 'run' ? (performance.now() - t0) / 1000 : phase === 'done' ? stoppedAt : 0;
-      const cover = phase === 'run' ? clamp((el - PEEK) / 0.35, 0, 1) : 0;
+      const cover = phase === 'run' ? clamp((el - peek) / 0.35, 0, 1) : 0;
       pen.text(`${label}s`, w / 2, 42, { size: 46 });
       drawWatch(pen, cx, cy, r, el, cover, t, phase === 'done' ? T : undefined);
-      const readout = phase === 'ready' ? '0.00' : phase === 'run' && el > PEEK ? '?.??' : el.toFixed(2);
+      const readout = phase === 'ready' ? '0.00' : phase === 'run' && el > peek ? '?.??' : el.toFixed(2);
       if (phase !== 'done') pen.text(readout, cx, cy + r + 34, { size: 30, alpha: 0.8 });
       else {
         const pop = easeOutBack(clamp((t - doneAt) / 0.4, 0, 1));
         pen.text(`you: ${el.toFixed(2)}s`, cx, cy + r + 34, { size: Math.max(1, 30 * pop), outline: WHITE });
       }
-      if (phase === 'ready') pen.text('tap to start', cx, cy - r - 50, { size: 22, font: 'gaegu', alpha: 0.5 + Math.sin(t * 4) * 0.25 });
+      if (phase === 'ready') {
+        pen.text('tap to start', cx, cy - r - 50, { size: 22, font: 'gaegu', alpha: 0.5 + Math.sin(t * 4) * 0.25 });
+        if (t - born > 1) drawHand(pen, cx + r * 0.25, cy + r * 0.35, { press: Math.sin(t * 4) * 0.5 + 0.5, ripple: (t * 1.2) % 1, alpha: 0.9 });
+      }
     };
 
     const canvas = stage.canvas;
@@ -126,8 +152,8 @@ export const stopwatch: GameDef = {
         };
       });
       g.setMood('listen');
-      g.say(`shh… counting to <b>${label}</b>…`);
-      setTimeout(() => phase === 'run' && sfx.shh(), PEEK * 1000);
+      g.say(g.tutorial ? `tap again at <b>${label}</b>!` : `shh… counting to <b>${label}</b>…`);
+      if (!g.tutorial) setTimeout(() => phase === 'run' && sfx.shh(), PEEK * 1000);
       // stop (or give up after a long while)
       const timedOut = await g.until<boolean>((done) => {
         tapHandler = (stamp) => {

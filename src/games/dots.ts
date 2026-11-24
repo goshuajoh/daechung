@@ -2,7 +2,8 @@ import type { GameDef, Shell } from '../lib/shell';
 import type { Pen } from '../lib/pen';
 import { sfx } from '../lib/audio';
 import { BERRY, BUTTER, INK, LILAC, MINT, PEACH, PINK, SKY, WHITE } from '../lib/palette';
-import { clamp, easeOutBack, pick, rand, randInt, random } from '../lib/rng';
+import { clamp, easeInOut, easeOutBack, lerp, pick, rand, randInt, random } from '../lib/rng';
+import { drawHand, drawPill, loop, span } from '../lib/hand';
 
 interface Bean { x: number; y: number; r: number; c: string; seed: number; tilt: number; face: boolean }
 
@@ -15,6 +16,7 @@ const RANGES: [number, number, boolean][] = [
 ];
 const COLORS = [PEACH, BUTTER, MINT, SKY, LILAC, PINK];
 let thumbBeans: Bean[] | undefined;
+let demoBeans: Bean[] | undefined;
 
 /** Scatter n non-overlapping beans in normalised [0,1]² space (aspect-corrected later). */
 function scatter(n: number, aspect: number, clumpy: boolean): Bean[] {
@@ -82,8 +84,35 @@ export const dots: GameDef = {
     if (vis > 0.82) pen.text('?', w / 2, h / 2, { size: h * 0.4, alpha: clamp((vis - 0.82) * 10, 0, 1) });
   },
 
+  steps: ['beans flash on screen for a few seconds', "don't count them all, just <b>guess</b>", 'type how many, then press <b>that many!</b>'],
+
+  demo(pen, w, h, t) {
+    const beans = (demoBeans ??= scatter(9, 1.5, false));
+    const k = loop(t, 5.4);
+    const s = Math.min(h * 0.86, (w * 0.56) / 1.5);
+    const ox = w * 0.04, oy = (h - s) / 2;
+    const show = k < 0.42 ? easeOutBack(span(k, 0, 0.08)) : 1 - span(k, 0.42, 0.48);
+    beans.forEach((b) => {
+      const r = b.r * s * show;
+      if (r > 0.5) drawBean(pen, b, ox + b.x * s, oy + b.y * s, r);
+    });
+    if (k < 0.42) pen.text(String(3 - Math.floor(span(k, 0, 0.42) * 2.99)), w * 0.84, h * 0.16, { size: 26, color: BERRY });
+    else pen.text('how many?', ox + s * 0.75, h / 2, { size: 20, font: 'gaegu', alpha: 0.6 });
+    const bx = w * 0.82, by = h * 0.42;
+    if (k > 0.48) {
+      pen.rrect(bx - 32, by - 24, 64, 48, 12, { fill: WHITE, seed: 600 });
+      pen.text(k > 0.66 ? '9' : '?', bx, by + 2, { size: 30, alpha: k > 0.66 ? 1 : 0.5 });
+      const tapB = k > 0.82 && k < 0.88 ? 1 : 0;
+      drawPill(pen, bx, by + 50, 'that many!', SKY, tapB);
+      const m = easeInOut(span(k, 0.48, 0.58)), m2 = easeInOut(span(k, 0.72, 0.8));
+      const hx = lerp(lerp(w * 1.05, bx, m), bx, m2), hy = lerp(lerp(h * 1.2, by + 6, m), by + 52, m2);
+      const tapA = k > 0.6 && k < 0.66 ? 1 : 0;
+      drawHand(pen, hx, hy, { press: tapA || tapB, scale: 0.7, ripple: k < 0.72 ? span(k, 0.6, 0.7) : span(k, 0.82, 0.92) });
+    }
+  },
+
   async play(g: Shell, level: number) {
-    const [lo, hi, clumpy] = RANGES[level];
+    const [lo, hi, clumpy] = g.tutorial ? ([5, 8, false] as const) : RANGES[level];
     const FLASH = g.quick ? 3 : 5;
     const n = randInt(lo, hi);
     const stage = g.stage;
@@ -93,6 +122,7 @@ export const dots: GameDef = {
     let phase: 'ready' | 'show' | 'hide' | 'guess' | 'count' = 'ready';
     let phaseAt = 0;
     let counted = 0;
+    let typed = false;
 
     const view = (w: number, h: number) => {
       const s = Math.min((w - 30) / aspect, h - top - 20);
@@ -134,7 +164,11 @@ export const dots: GameDef = {
         beans.forEach((b) => drawBean(pen, b, ox + b.x * s, oy + b.y * s, b.r * s * (1 - out)));
         return;
       }
-      if (phase === 'guess') return;
+      if (phase === 'guess') {
+        // nudge: point at the number box
+        if (!typed && t - phaseAt > 1.6) drawHand(pen, w / 2 + 34, h / 2 + 52, { press: Math.sin(t * 4) * 0.5 + 0.5, alpha: 0.9 });
+        return;
+      }
       // count-up reveal
       beans.forEach((b, i) => {
         if (i >= counted) return;
@@ -143,7 +177,8 @@ export const dots: GameDef = {
       pen.text(String(counted), w / 2, 34, { size: 40, outline: WHITE });
     };
 
-    g.say(`you get <b>${FLASH} seconds</b>. don't count — estimate!`, 'idle');
+    if (g.tutorial) g.say(`only a few beans this time, so try counting them! later there'll be <b>way too many</b> to count.`, 'idle');
+    else g.say(`you get <b>${FLASH} seconds</b>. don't count — estimate!`, 'idle');
     await g.ready('show me');
     phase = 'show';
     phaseAt = stage.time;
@@ -156,6 +191,7 @@ export const dots: GameDef = {
     g.setMood('focus');
     await g.wait(320);
     phase = 'guess';
+    phaseAt = stage.time;
 
     // ——— input ———
     const panel = document.createElement('div');
@@ -169,6 +205,7 @@ export const dots: GameDef = {
     g.say('how many beans were there?', 'focus');
     const confirm = g.confirmButton('that many!', false);
     const sync = () => (confirm.el.disabled = !(input.value.trim() !== '' && Number(input.value) >= 0));
+    input.addEventListener('input', () => (typed = input.value.trim() !== ''));
     input.addEventListener('input', sync);
     panel.querySelectorAll<HTMLButtonElement>('[data-d]').forEach((b) =>
       b.addEventListener('click', () => {
@@ -180,7 +217,7 @@ export const dots: GameDef = {
     );
     if (matchMedia('(pointer: fine)').matches) setTimeout(() => input.focus(), 50);
     const timedOut = await g.lockIn(confirm, 10);
-    const typed = input.value.trim() !== '';
+    typed = input.value.trim() !== '';
     const guess = typed ? Math.round(Number(input.value)) : 0;
     panel.remove();
     input.blur();

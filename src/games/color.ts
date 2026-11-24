@@ -2,7 +2,8 @@ import type { GameDef, Shell } from '../lib/shell';
 import type { Pen, Pt } from '../lib/pen';
 import { sfx } from '../lib/audio';
 import { BERRY, INK, ROSE, WHITE } from '../lib/palette';
-import { clamp, easeOutBack, rand } from '../lib/rng';
+import { clamp, easeInOut, easeOutBack, lerp, rand } from '../lib/rng';
+import { drawHand, drawPill, loop, span } from '../lib/hand';
 
 const hsl = (h: number, s: number, l: number) => `hsl(${((h % 360) + 360) % 360} ${s}% ${l}%)`;
 const hueDiff = (a: number, b: number) => {
@@ -77,13 +78,45 @@ export const color: GameDef = {
     pen.circle(kx, ky, (r1 - r0) * 0.62, { fill: WHITE, seed: 30, width: 2.5 });
   },
 
+  steps: ['stare at the colour', 'it vanishes. <b>remember it!</b>', "spin the wheel to find it, press <b>that's it!</b>"],
+
+  demo(pen, w, h, t) {
+    const k = loop(t, 6.2);
+    const cx = w * 0.42, cy = h * 0.52;
+    const r1 = Math.min(w * 0.26, h * 0.44), r0 = r1 * 0.72;
+    const target = 330;
+    if (k < 0.32) {
+      drawJelly(pen, cx, cy, r1 * 0.8, hsl(target, 70, 72), t);
+      pen.text(String(3 - Math.floor(span(k, 0, 0.32) * 2.99)), w * 0.84, h * 0.18, { size: 28, color: BERRY });
+      pen.text('remember me!', cx, cy - r1 * 0.95, { size: 17, font: 'gaegu', alpha: 0.7 });
+      return;
+    }
+    if (k < 0.4) {
+      pen.text('gone! do you remember?', cx, cy, { size: 18, font: 'gaegu', alpha: 0.7 });
+      return;
+    }
+    drawRing(pen.ctx, pen, cx, cy, r0, r1, 70, 72);
+    const hue = lerp(200, target, easeInOut(span(k, 0.46, 0.78)));
+    drawJelly(pen, cx, cy, r0 * 0.7, hsl(hue, 70, 72), t);
+    const [kx, ky] = ringPos(cx, cy, (r0 + r1) / 2, hue);
+    pen.circle(kx, ky, (r1 - r0) * 0.6, { fill: WHITE, seed: 43, width: 3 });
+    const pill: Pt = [w * 0.84, h * 0.82];
+    const press = k > 0.88 && k < 0.93 ? 1 : 0;
+    drawPill(pen, pill[0], pill[1], "that's it!", ROSE, press);
+    if (k < 0.8) drawHand(pen, kx, ky, { press: k > 0.44 ? 1 : 0, scale: 0.75 });
+    else {
+      const m = easeInOut(span(k, 0.8, 0.88));
+      drawHand(pen, lerp(kx, pill[0], m), lerp(ky, pill[1], m), { press, ripple: span(k, 0.88, 0.98), scale: 0.75 });
+    }
+  },
+
   async play(g: Shell, level: number) {
     const target = rand(0, 360);
     const s = Math.round(rand(55, 80));
     const l = Math.round(rand(60, 74));
     let pickHue = (target + rand(100, 260)) % 360;
-    const memo = g.quick ? Math.max(1.5, MEMO[level] - 0.5) : MEMO[level];
-    const distract = level >= 2;
+    const memo = g.tutorial ? 4 : g.quick ? Math.max(1.5, MEMO[level] - 0.5) : MEMO[level];
+    const distract = level >= 2 && !g.tutorial;
     let phase: 'memo' | 'gap' | 'pick' | 'done' = 'memo';
     let phaseAt = g.stage.time;
     let touched = false;
@@ -140,6 +173,16 @@ export const color: GameDef = {
       const [kx, ky] = ringPos(cx, cy, mid, pickHue);
       pen.circle(kx, ky, (r1 - r0) * 0.6, { fill: WHITE, seed: 43, width: 3 });
       pen.circle(kx, ky, (r1 - r0) * 0.32, { fill: hsl(pickHue, s, l), stroke: null, seed: 44, shift: [0, 0] });
+      if (phase === 'pick' && !touched && t - phaseAt > 1.2) {
+        const a = Math.sin((t - phaseAt) * 2) * 0.3;
+        const [hx, hy] = ringPos(cx, cy, mid, pickHue + a * 40);
+        drawHand(pen, hx, hy, { press: 1, alpha: 0.85 });
+      }
+      // training wheels: keep the real colour on screen in the corner
+      if (g.tutorial && phase === 'pick') {
+        pen.circle(42, 74, 24, { fill: hsl(target, s, l), seed: 45 });
+        pen.text('find me!', 74, 74, { size: 18, font: 'gaegu', align: 'left' });
+      }
     };
 
     await g.wait(memo * 1000);
@@ -151,7 +194,7 @@ export const color: GameDef = {
     await g.wait(distract ? 900 : 450);
     phase = 'pick';
     phaseAt = stage.time;
-    g.say('spin the wheel to find <b>that</b> colour.', 'focus');
+    g.say(g.tutorial ? 'drag the white knob around the wheel until the jelly matches the colour in the corner. then press the button.' : 'spin the wheel to find <b>that</b> colour.', 'focus');
 
     const canvas = stage.canvas;
     let dragging = false;

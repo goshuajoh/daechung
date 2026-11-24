@@ -1,6 +1,7 @@
 import { Stage } from './stage';
 import { drawKongi, type Mood } from './kongi';
 import { sfx } from './audio';
+import { hasLearned, markLearned } from './store';
 import { icons } from './icons';
 import { clamp, pick, rand, seedRandom } from './rng';
 import { BLUSH, BUTTER, LILAC, MINT, PASTELS, PEACH, SKY } from './palette';
@@ -27,7 +28,14 @@ export interface GameDef {
   /** Practice ranks: [minimum total out of 500, title], highest first. */
   ranks: [number, string][];
   thumb(pen: Pen, w: number, h: number, t: number): void;
-  /** One challenge. `level` 0..4 is difficulty. */
+  /** 2–3 tiny steps for the how-to card. Keep them dead simple. */
+  steps: string[];
+  /** Looping demo of how to play, with a ghost hand doing the moves. */
+  demo(pen: Pen, w: number, h: number, t: number): void;
+  /**
+   * One challenge. `level` 0..4 is difficulty. When `g.tutorial` is on it's a free
+   * practice go: no clock, and games may show training wheels (live numbers, guides).
+   */
   play(g: Shell, level: number): Promise<RoundResult>;
 }
 
@@ -114,6 +122,11 @@ export class Shell {
   /** Games can set this to 1 to make Kongi bounce; it decays by itself. */
   bop = 0;
   total = 0;
+  /** True during a free practice try (no clock, training wheels on). */
+  tutorial = false;
+  private demoCleanup: (() => void) | null = null;
+  /** Aborted to cancel just the current round (e.g. skipping a practice try). */
+  private roundAc = new AbortController();
   /** Fraction of the countdown left when the player locked in (null = no clock ran). */
   timeLeft: number | null = null;
   private clockLive = false;
@@ -180,7 +193,7 @@ export class Shell {
 
   /** Runs use quicker variants (shorter flashes, fewer beats). */
   get quick() {
-    return this.timed;
+    return this.timed && !this.tutorial;
   }
 
   private onKey(e: KeyboardEvent) {
@@ -193,6 +206,7 @@ export class Shell {
   }
 
   destroy() {
+    this.demoCleanup?.();
     this.ac.abort();
     this.stopClock();
     seedRandom(null);
@@ -263,12 +277,15 @@ export class Shell {
         cleanup?.();
         reject(new DOMException('left the game', 'AbortError'));
       };
-      if (this.signal.aborted) return onAbort();
+      const round = this.roundAc.signal;
+      if (this.signal.aborted || round.aborted) return onAbort();
       this.signal.addEventListener('abort', onAbort, { once: true });
+      round.addEventListener('abort', onAbort, { once: true });
       cleanup = setup((v) => {
         if (settled) return;
         settled = true;
         this.signal.removeEventListener('abort', onAbort);
+        round.removeEventListener('abort', onAbort);
         queueMicrotask(() => cleanup?.());
         resolve(v);
       });
@@ -308,6 +325,7 @@ export class Shell {
 
   /** In practice: a button to start. In runs: just a beat, the title card already said "ready". */
   ready(label: string) {
+    if (this.tutorial) return this.wait(500);
     return this.timed ? this.wait(250) : this.button(label);
   }
 
@@ -332,7 +350,7 @@ export class Shell {
 
   /** Starts the countdown bar; resolves when time runs out. Never resolves outside runs. */
   clock(seconds: number): Promise<void> {
-    if (!this.timed) return new Promise(() => {});
+    if (!this.timed || this.tutorial) return new Promise(() => {});
     this.stopClock();
     this.clockT0 = performance.now();
     this.clockDur = seconds * 1000;
@@ -402,29 +420,140 @@ export class Shell {
     };
   }
 
-  private async titleCard(def: GameDef, i: number) {
+  /** Big slammed-in card before each game in a run. Resolves true if they asked for help. */
+  private async titleCard(def: GameDef, i: number, offerHelp: boolean, sub = def.verb): Promise<boolean> {
     this.stage.draw = (pen, w, h, t) => {
       def.thumb(pen, w, h, t);
       // fade it back with a wash of paper (globalAlpha would break layered doodles)
       pen.ctx.fillStyle = 'rgba(255, 250, 240, 0.68)';
       pen.ctx.fillRect(0, 0, w, h);
     };
-    const card = el('div', 'title-card', `<small>${i + 1} / ${this.opts.steps}</small><b>${def.name}</b><span>${def.verb}</span>`);
+    const card = el('div', 'title-card', `<small>${i + 1} / ${this.opts.steps}</small><b>${def.name}</b><span>${sub}</span>`);
     card.style.setProperty('--tc', def.color);
     card.style.setProperty('--rot', `${(i % 2 ? 1 : -1) * rand(1.5, 3.5)}deg`);
+    const help = el('button', 'help-chip', 'how do I play?') as HTMLButtonElement;
+    if (offerHelp) card.appendChild(help);
     this.overlay.appendChild(card);
-    this.say(def.verb, 'wow');
+    this.say(sub, 'wow');
     sfx.whoosh(0.3);
-    await Promise.race([
-      this.wait(1500),
-      this.until<void>((done) => {
-        card.addEventListener('pointerdown', () => done());
+    const wantHelp = await Promise.race([
+      this.wait(offerHelp ? 1900 : 1300).then(() => false),
+      this.until<boolean>((done) => {
+        card.addEventListener('pointerdown', (e) => {
+          if (e.target === help) return;
+          done(false);
+        });
+        help.addEventListener('click', (e) => {
+          e.stopPropagation();
+          sfx.pop();
+          done(true);
+        });
       }),
     ]);
     card.classList.add('bye');
     await this.wait(180);
     card.remove();
     this.setMood('idle');
+    return wantHelp;
+  }
+
+  /* ——— tutorials ——— */
+
+  private get who() {
+    return this.opts.player?.name ?? '';
+  }
+
+  /** The animated "how to play" card: demo with a ghost hand + numbered steps. */
+  private showHowTo(def: GameDef) {
+    this.demoCleanup?.();
+    this.stage.draw = () => {};
+    this.overlay.innerHTML = '';
+    const card = el('div', 'howto', `
+      <div class="howto-head"><small>how to play</small><b>${def.name}</b><span>${def.kr}</span></div>
+      <div class="howto-demo"></div>
+      <ol class="howto-steps">${def.steps.map((st, k) => `<li style="--d:${300 + k * 160}ms"><i>${k + 1}</i><span>${st}</span></li>`).join('')}</ol>`);
+    card.style.setProperty('--tc', def.color);
+    this.overlay.appendChild(card);
+    const demo = new Stage(card.querySelector<HTMLElement>('.howto-demo')!, 'demo-canvas');
+    demo.draw = (pen, w, h, t) => def.demo(pen, w, h, t);
+    this.demoCleanup = () => {
+      demo.destroy();
+      card.remove();
+      this.demoCleanup = null;
+    };
+  }
+
+  /**
+   * Teach a game: how-to card, then as many free practice tries as they like.
+   * `first` = they've never played it, so we push the practice try.
+   */
+  async teach(def: GameDef, first: boolean, goLabel = "I'm ready!") {
+    this.showHowTo(def);
+    this.setMood('happy');
+    this.say(first ? "new game! watch the hand, then have a <b>free practice go</b>. it won't count." : def.howto);
+    const labels = first ? ['try it (free)', 'skip, I get it'] : [goLabel, 'try it (free)'];
+    let i = await this.choose(labels, 0);
+    this.demoCleanup?.();
+    let action: 'try' | 'go' = (first ? i === 0 : i === 1) ? 'try' : 'go';
+    while (action === 'try') {
+      await this.tryRound(def);
+      i = await this.choose([goLabel, 'practice again', 'how to play'], 0);
+      if (i === 2) {
+        this.showHowTo(def);
+        this.say(def.howto, 'happy');
+        i = await this.choose([goLabel, 'try it (free)'], 0);
+        this.demoCleanup?.();
+        action = i === 0 ? 'go' : 'try';
+      } else action = i === 0 ? 'go' : 'try';
+    }
+    this.overlay.innerHTML = '';
+    markLearned(def.id, this.who);
+  }
+
+  /** A free, untimed go with training wheels. Doesn't count. */
+  private async tryRound(def: GameDef) {
+    this.overlay.innerHTML = '';
+    this.look = undefined;
+    this.setMood('idle');
+    this.clearActions();
+    this.tutorial = true;
+    this.root.classList.add('practicing');
+    this.roundAc = new AbortController();
+    const skip = el('button', 'skip-chip', 'skip practice') as HTMLButtonElement;
+    skip.addEventListener('click', () => {
+      sfx.click();
+      this.roundAc.abort();
+    });
+    this.overlay.appendChild(skip);
+    let res: RoundResult | null = null;
+    try {
+      seedRandom(null);
+      res = await def.play(this, 0);
+    } catch (e) {
+      // skipping only cancels this round; leaving the screen still propagates
+      if (!isAbort(e) || this.signal.aborted) throw e;
+    } finally {
+      this.tutorial = false;
+      this.hideClock();
+      this.root.classList.remove('practicing');
+      skip.remove();
+      this.roundAc = new AbortController();
+    }
+    if (!res) {
+      this.overlay.innerHTML = '';
+      this.stage.draw = () => {};
+      this.setMood('happy');
+      this.say('no worries! you can always practice from the home screen.');
+      return;
+    }
+    const acc = Math.round(clamp(res.score, 0, 100));
+    const s = el('div', 'sticker', `<b>${acc}</b><span>practice</span><em>doesn't count</em>`);
+    s.style.setProperty('--sc', 'var(--white)');
+    s.style.setProperty('--rot', `${rand(-10, 8).toFixed(1)}deg`);
+    this.overlay.appendChild(s);
+    sfx.pop();
+    this.setMood(acc >= 60 ? 'cheer' : 'happy', 2600);
+    this.say(`${res.detail} <em>· that's how it works! ready for real?</em>`);
   }
 
   /** Play a list of mini-games. Returns null if the player left. */
@@ -439,7 +568,14 @@ export class Shell {
         this.look = undefined;
         this.setMood('idle');
         this.clearActions();
-        if (this.timed) await this.titleCard(game, i);
+        if (this.timed) {
+          const learned = hasLearned(game.id, this.who);
+          const wantHelp = await this.titleCard(game, i, learned);
+          if (wantHelp || !learned) {
+            await this.teach(game, !learned);
+            await this.titleCard(game, i, false, 'for real now!');
+          }
+        }
         this.timeLeft = null;
         seedRandom(seed == null ? null : (seed * 7919 + (i + 1) * 104729 + level) | 0);
         let res: RoundResult;

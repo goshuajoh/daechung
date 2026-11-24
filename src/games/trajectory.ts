@@ -2,7 +2,8 @@ import type { GameDef, Shell } from '../lib/shell';
 import type { Pen, Pt } from '../lib/pen';
 import { sfx } from '../lib/audio';
 import { BERRY, BUTTER, INK, MINT, PEACH, PINK, WHITE } from '../lib/palette';
-import { clamp, easeOutBack, rand, random } from '../lib/rng';
+import { clamp, easeInOut, easeOutBack, lerp, rand, random } from '../lib/rng';
+import { drawHand, loop, span } from '../lib/hand';
 
 const VISIBLE = [0.55, 0.5, 0.44, 0.38, 0.32];
 
@@ -113,9 +114,55 @@ export const trajectory: GameDef = {
     drawFlag(pen, w * 0.8, gy, PINK);
   },
 
+  steps: ['watch the ball fly', 'halfway, it turns <b>invisible!</b>', 'tap the ground where it will land'],
+
+  demo(pen, w, h, t) {
+    const gy = h * 0.84;
+    const k = loop(t, 5.6);
+    drawGround(pen, w, h, gy);
+    const cx = w * 0.12;
+    const [tx, ty] = armTip(cx, gy, 1, 1);
+    const xL = w * 0.74;
+    const p = makePath(tx, ty - 12, xL, gy, h * 0.58, 1.6);
+    const fling = span(k, 0, 0.08);
+    drawCatapult(pen, cx, gy, 1, k < 0.08 ? fling : Math.max(0, 1 - (k - 0.08) * 6));
+    const u = span(k, 0.08, 0.38) * 0.5;
+    for (let i = 1; i <= 12; i++) {
+      if (i / 24 > u) break;
+      const [x, y] = posAt(p, i / 24);
+      pen.circle(x, y, 1.8, { fill: INK, stroke: null, shift: [0, 0], seed: 650 + i, alpha: 0.4 });
+    }
+    if (k < 0.08) {
+      const [bx, by] = armTip(cx, gy, 1, fling);
+      drawBall(pen, bx, by - 12, 9, 0);
+    } else if (k < 0.38) {
+      const [x, y] = posAt(p, u);
+      drawBall(pen, x, y, 9, t * 9);
+    } else if (k < 0.74) {
+      const [x, y] = posAt(p, 0.5);
+      pen.text('?', x + 16, y - 6, { size: 26, alpha: 0.55 });
+      if (k < 0.5) pen.text('poof! invisible', x, y - 30, { size: 16, font: 'gaegu', alpha: 0.7 });
+    }
+    if (k > 0.56) drawFlag(pen, xL - 6, gy, PINK, easeOutBack(span(k, 0.56, 0.64)));
+    if (k > 0.72) {
+      const uu = 0.5 + span(k, 0.72, 0.88) * 0.5;
+      for (let i = 13; i <= 24; i++) {
+        if (i / 24 > uu) break;
+        const [x, y] = posAt(p, i / 24);
+        pen.circle(x, y, 2.2, { fill: BERRY, stroke: null, shift: [0, 0], seed: 660 + i, alpha: 0.7 });
+      }
+      const [bx, by] = posAt(p, uu);
+      drawBall(pen, bx, Math.min(by, gy - 9), 9, t * 9);
+    }
+    if (k > 0.42 && k < 0.66) {
+      const m = easeInOut(span(k, 0.42, 0.54));
+      drawHand(pen, lerp(w * 1.05, xL - 6, m), lerp(h * 1.15, gy, m), { press: k > 0.54 && k < 0.6 ? 1 : 0, ripple: span(k, 0.56, 0.66), scale: 0.75 });
+    }
+  },
+
   async play(g: Shell, level: number) {
     const dirX = random() < 0.5 ? -1 : 1;
-    const visible = VISIBLE[level];
+    const visible = g.tutorial ? 0.72 : VISIBLE[level];
     const rnd = { land: rand(0.45, 0.92), apex: rand(0.45, 0.85), T: rand(1.3, 1.8) };
     let phase: 'ready' | 'fling' | 'fly' | 'guess' | 'reveal' = 'ready';
     let phaseAt = 0;
@@ -215,7 +262,10 @@ export const trajectory: GameDef = {
           }
         }
       }
-      if (phase === 'guess' && guessX == null) pen.text('tap the ground!', w / 2, gy + 26, { size: 22, color: INK, alpha: 0.75 });
+      if (phase === 'guess' && guessX == null) {
+        pen.text('tap the ground!', w / 2, gy + 26, { size: 22, color: INK, alpha: 0.75 });
+        if (t - phaseAt > 1.4) drawHand(pen, w / 2 + 60, gy - 2, { press: Math.sin(t * 4) * 0.5 + 0.5, ripple: (t * 1.3) % 1, alpha: 0.9 });
+      }
     };
 
     await g.ready('fling it!');
@@ -230,8 +280,9 @@ export const trajectory: GameDef = {
     await g.wait(visible * p0.T * 1000 + 120);
     sfx.shh();
     phase = 'guess';
+    phaseAt = stage.time;
     g.setMood('focus');
-    g.say('where will it land? <b>tap the ground</b>, then lock it in.');
+    g.say(g.tutorial ? 'it went invisible! follow the dots in your head and <b>tap the ground</b> where it lands. then press the button.' : 'where will it land? <b>tap the ground</b>, then lock it in.');
 
     const canvas = stage.canvas;
     let dragging = false;

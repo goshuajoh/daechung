@@ -2,7 +2,8 @@ import type { GameDef, Shell } from '../lib/shell';
 import type { Pen, Pt } from '../lib/pen';
 import { sfx } from '../lib/audio';
 import { BERRY, INK, LIME, WHITE } from '../lib/palette';
-import { clamp, easeOutBack, pick, rand } from '../lib/rng';
+import { clamp, easeInOut, easeOutBack, lerp, pick, rand } from '../lib/rng';
+import { drawHand, loop, span } from '../lib/hand';
 
 type Kind = 'circle' | 'square' | 'hexagon' | 'ellipse' | 'arc';
 interface Shape { kind: Kind; rot: number; arc: number; aspect: number; cx: number; cy: number; size: number }
@@ -69,6 +70,23 @@ export const center: GameDef = {
     pen.text('?', cx, cy, { size: R * 0.5, alpha: k > 0.4 ? 0 : 0.5 });
   },
 
+  steps: ['look at the shape', 'tap its <b>exact middle</b>, just once', 'later only part of the circle shows!'],
+
+  demo(pen, w, h, t) {
+    const k = loop(t, 4);
+    const R = Math.min(w, h) * 0.36;
+    const cx = w * 0.45, cy = h * 0.52;
+    drawShape(pen, { kind: 'circle', rot: 0, arc: 1, aspect: 1, cx: 0, cy: 0, size: 0 }, cx, cy, R);
+    if (k > 0.5) {
+      pen.star(cx, cy, 10 * easeOutBack(span(k, 0.5, 0.6)) + 1, { fill: BERRY, seed: 4, width: 2 }, 0);
+      pen.text('dead center!', cx, cy - R - 14, { size: 18, color: BERRY, outline: WHITE });
+    }
+    if (k < 0.66) {
+      const m = easeInOut(span(k, 0.08, 0.4));
+      drawHand(pen, lerp(w * 1.05, cx, m), lerp(h * 1.2, cy, m), { press: k > 0.42 && k < 0.5 ? 1 : 0, ripple: span(k, 0.45, 0.62), scale: 0.75 });
+    }
+  },
+
   async play(g: Shell, level: number) {
     const kind = pick(LEVELS[level]);
     const shape: Shape = {
@@ -91,11 +109,19 @@ export const center: GameDef = {
       return { cx, cy, R };
     };
 
-    g.say(kind === 'arc' ? 'only a piece this time. where is its <b>center</b>?' : 'tap the <b>exact center</b>!', 'focus');
+    const born = g.stage.time;
+    if (g.tutorial) g.say('tap the <b>exact middle</b> of the circle. one tap, no take-backs!', 'focus');
+    else g.say(kind === 'arc' ? 'only a piece this time. where is its <b>center</b>?' : 'tap the <b>exact center</b>!', 'focus');
     const stage = g.stage;
     stage.draw = (pen, w, h, t) => {
       const { cx, cy, R } = layout(w, h);
       drawShape(pen, shape, cx, cy, R);
+      // training wheels: after a moment, show where "middle" lines cross
+      if (g.tutorial && !doneAt && t - born > 2.5) {
+        const a = Math.min(1, (t - born - 2.5) * 2) * 0.35;
+        pen.line(cx - R, cy, cx + R, cy, { stroke: INK, width: 2, dash: [6, 7], alpha: a, seed: 8 });
+        pen.line(cx, cy - R, cx, cy + R, { stroke: INK, width: 2, dash: [6, 7], alpha: a, seed: 9 });
+      }
       if (!doneAt) return;
       const pop = easeOutBack(clamp((t - doneAt) / 0.4, 0, 1));
       if (kind === 'arc') pen.circle(cx, cy, R, { stroke: INK, width: 2, dash: [6, 8], alpha: 0.3, seed: 3 });

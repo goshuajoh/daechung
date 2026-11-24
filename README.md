@@ -19,6 +19,10 @@ Ten tiny hand-drawn mini-games that test how good your eyeball is, hosted by **K
 
 In runs, each game scores up to **100 for accuracy + 20 speed bonus** (how much of the countdown was left).
 
+### First time? It teaches you
+
+The first time you meet a game (per device, or per player name in Party), you get a **how-to card**: a looping demo where a cartoon hand does the moves, plus three short numbered steps. Then you can take a **free practice try** that doesn't count: no timer, easier setup, and *training wheels* (the live angle / % / time is shown, a dashed circle to trace, the target colour stays in the corner, and so on). Returning players get a small "how do I play?" button on each title card instead. If someone stalls, a hand appears and points at what to touch. "show tutorials again" on the home screen resets all of this.
+
 ## The games
 
 | game | what you do |
@@ -62,4 +66,4 @@ No image assets and no emoji: everything is drawn in code.
 
 ## Adding a game
 
-Make a `GameDef` (see `src/lib/shell.ts`) with a `thumb()` for the home card and an async `play(shell, level)` that returns `{ score, detail }` for one challenge. Use `shell.lockIn(confirm, seconds)` (or `shell.clock(seconds)`) so it works on the countdown in runs, and draw randomness from `src/lib/rng.ts` so daily and party runs stay identical across players. Register it in `src/main.ts`; the modes in `src/modes.ts` / `src/party.ts` pick it up automatically.
+Make a `GameDef` (see `src/lib/shell.ts`) with a `thumb()` for the home card, `steps` + a `demo()` for the how-to card (`src/lib/hand.ts` has the pointing hand), and an async `play(shell, level)` that returns `{ score, detail }` for one challenge. Use `shell.lockIn(confirm, seconds)` (or `shell.clock(seconds)`) so it works on the countdown in runs, and draw randomness from `src/lib/rng.ts` so daily and party runs stay identical across players. Check `shell.tutorial` to switch on training wheels. Register it in `src/main.ts`; the modes in `src/modes.ts` / `src/party.ts` pick it up automatically.

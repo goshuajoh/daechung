@@ -1,5 +1,5 @@
 import { Shell, type GameDef, type Step, type StepResult } from './lib/shell';
-import { getBest, saveScore } from './lib/store';
+import { getBest, hasLearned, saveScore } from './lib/store';
 import { icons } from './lib/icons';
 import { seedRandom, shuffle } from './lib/rng';
 import { BUTTER, LILAC, WHITE } from './lib/palette';
@@ -68,10 +68,8 @@ export function startPractice(app: HTMLElement, def: GameDef, exit: () => void):
 
   const go = async (intro: boolean) => {
     if (intro) {
-      g.showcase(def, `${def.kr}  ·  practice  ·  5 rounds`);
-      g.say(def.howto, 'happy');
       try {
-        await g.button('start!');
+        await g.teach(def, !hasLearned(def.id), 'start!');
       } catch {
         return;
       }

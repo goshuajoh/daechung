@@ -2,7 +2,8 @@ import type { GameDef, Shell } from '../lib/shell';
 import type { Pen, Pt } from '../lib/pen';
 import { sfx } from '../lib/audio';
 import { BERRY, BUTTER, INK, LEAF, PEACH, PINK, WHITE } from '../lib/palette';
-import { clamp, easeOutBack, pick, rand, randInt } from '../lib/rng';
+import { clamp, easeInOut, easeOutBack, lerp, pick, rand, randInt } from '../lib/rng';
+import { drawHand, drawPill, loop, span } from '../lib/hand';
 
 interface Food {
   name: string;
@@ -169,7 +170,51 @@ export const cut: GameDef = {
     pen.text('37%', w * 0.2, h * 0.2, { size: Math.min(30, h * 0.18) });
   },
 
+  steps: ['look at the %', 'slide the knife so the <b>left</b> piece is that big', 'press <b>chop!</b>'],
+
+  demo(pen, w, h, t) {
+    const k = loop(t, 4.8);
+    const food = FOODS[0];
+    const len = w * 0.72, hgt = Math.min(len * food.ratio, h * 0.2);
+    const x0 = w * 0.1, y = h * 0.76;
+    const kk = k < 0.12 ? 0.75 : lerp(0.75, 0.3, easeInOut(span(k, 0.12, 0.5)));
+    const cutX = x0 + len * kk;
+    const sc = clamp(h / 230, 0.45, 0.85);
+    pen.text('30%', w * 0.14, h * 0.15, { size: Math.min(30, h * 0.18) });
+    const pill: Pt = [w * 0.82, h * 0.15];
+    const press = k > 0.6 && k < 0.66 ? 1 : 0;
+    drawPill(pen, pill[0], pill[1], 'chop!', PEACH, press);
+    if (k < 0.66) {
+      food.body(pen, x0, y, len, hgt);
+      pen.line(cutX, y - hgt / 2 - 4, cutX, y + hgt / 2 + 6, { stroke: BERRY, width: 2, dash: [5, 6], seed: 130 });
+      drawKnife(pen, cutX, y - hgt / 2 - 6, 4, sc);
+    } else {
+      const apart = easeOutBack(span(k, 0.68, 0.85)) * 10;
+      const ctx = pen.ctx;
+      for (const [a, b, dx] of [[x0 - 30, cutX, -apart], [cutX, x0 + len + 30, apart]]) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(a + dx, y - hgt * 2, b - a, hgt * 4);
+        ctx.clip();
+        ctx.translate(dx, 0);
+        food.body(pen, x0, y, len, hgt);
+        ctx.restore();
+      }
+      if (k < 0.8) drawKnife(pen, cutX, y - hgt / 2 - 6, -hgt * span(k, 0.66, 0.7), sc);
+    }
+    const handle: Pt = [cutX + 12 * sc, y - hgt / 2 - 10 - 88 * sc];
+    if (k < 0.12) {
+      const m = easeInOut(span(k, 0, 0.12));
+      drawHand(pen, lerp(w * 1.05, handle[0], m), lerp(h * 1.1, handle[1], m), { scale: 0.75 });
+    } else if (k < 0.52) drawHand(pen, handle[0], handle[1], { press: 1, scale: 0.75 });
+    else if (k < 0.72) {
+      const m = easeInOut(span(k, 0.52, 0.6));
+      drawHand(pen, lerp(handle[0], pill[0], m), lerp(handle[1], pill[1], m), { press, scale: 0.75, ripple: span(k, 0.6, 0.72) });
+    }
+  },
+
   async play(g: Shell) {
+    const born = g.stage.time;
     const food = pick(FOODS.filter((f) => f !== lastFood));
     lastFood = food;
     const target = pickPercent();
@@ -186,7 +231,8 @@ export const cut: GameDef = {
       return { len, hgt, x0, y: h * 0.56 };
     };
 
-    g.say(`cut the ${food.name} so the <b>left</b> piece is <b>${target}%</b>`, 'focus');
+    if (g.tutorial) g.say(`slide the knife so the <b>left</b> piece is <b>${target}%</b> of the ${food.name}, then press chop. a number helps you this time!`, 'focus');
+    else g.say(`cut the ${food.name} so the <b>left</b> piece is <b>${target}%</b>`, 'focus');
     const stage = g.stage;
 
     stage.draw = (pen, w, h, t) => {
@@ -201,6 +247,9 @@ export const cut: GameDef = {
         if (aimed) pen.line(cutX, y - hgt / 2 - 6, cutX, y + hgt / 2 + 8, { stroke: BERRY, width: 2, dash: [5, 6], seed: 141 });
         drawKnife(pen, cutX, y - hgt / 2 - 8, aimed ? 0 : 10 + Math.sin(t * 4) * 6);
         if (!aimed) pen.text('move me', cutX + 60, y - hgt / 2 - 70, { size: 20, font: 'gaegu', alpha: 0.6 });
+        const handleY = y - hgt / 2 - 8 - 64 - 24 - (aimed ? 0 : 10 + Math.sin(t * 4) * 6);
+        if (!aimed && t - born > 1.2) drawHand(pen, cutX + 12, handleY, { press: 1, alpha: 0.9 });
+        if (g.tutorial && aimed) pen.text(`${Math.round(knifeK * 100)}%`, cutX + 34, handleY - 10, { size: 26, color: BERRY, align: 'left', outline: WHITE });
         return;
       }
 

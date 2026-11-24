@@ -2,7 +2,8 @@ import type { GameDef, Shell } from '../lib/shell';
 import type { Pen, Pt } from '../lib/pen';
 import { sfx } from '../lib/audio';
 import { APRICOT, BERRY, INK, WHITE } from '../lib/palette';
-import { clamp, easeOutBack, pick, rand, randInt } from '../lib/rng';
+import { clamp, easeInOut, easeOutBack, lerp, pick, rand, randInt } from '../lib/rng';
+import { drawHand, loop, span } from '../lib/hand';
 
 interface Drink { name: string; color: string; foam: string }
 const DRINKS: Drink[] = [
@@ -99,6 +100,35 @@ export const pour: GameDef = {
     pen.text('64%', w * 0.84, h * 0.2, { size: Math.min(26, h * 0.16) });
   },
 
+  steps: ['look at the %', 'press and <b>hold</b> to pour', '<b>let go</b> when the glass is that full'],
+
+  demo(pen, w, h, t) {
+    const k = loop(t, 5.2);
+    const ch = h * 0.54, cw = Math.min(w * 0.2, ch * 0.62);
+    const cup: Cup = { x: w * 0.46 - cw / 2, y: h * 0.94 - ch, w: cw, h: ch };
+    const pouring = k > 0.16 && k < 0.66;
+    const fill = span(k, 0.16, 0.66) * 0.6;
+    const sc = clamp(h / 280, 0.45, 0.9);
+    const mouth: Pt = [cup.x + cw * 0.3, cup.y - ch * 0.16];
+    const drink = DRINKS[1];
+    if (pouring) pen.line(mouth[0], mouth[1], mouth[0] + 2, cup.y + ch - fill * ch, { stroke: drink.color, width: 6, seed: 80, rough: 0.6 });
+    drawCup(pen, cup, fill, drink, t, pouring ? 1 : 0.2);
+    drawPitcher(pen, mouth, pouring ? 1 : 0, drink, sc);
+    pen.text('60%', w * 0.12, h * 0.16, { size: Math.min(30, h * 0.18) });
+    if (k > 0.7) {
+      const ty = cup.y + ch - 0.6 * ch;
+      pen.line(cup.x - 10, ty, cup.x + cw + 10, ty, { stroke: BERRY, width: 2.5, dash: [6, 5], seed: 83 });
+      pen.text('perfect!', cup.x - 12, ty, { size: 16, color: BERRY, align: 'right', outline: WHITE });
+    }
+    const hx = w * 0.82, hy = h * 0.6;
+    if (k < 0.16) {
+      const m = easeInOut(span(k, 0, 0.12));
+      drawHand(pen, lerp(w * 1.05, hx, m), lerp(h * 1.2, hy, m), { scale: 0.75 });
+    } else if (k < 0.8) drawHand(pen, hx, hy - (pouring ? 0 : 10), { press: pouring ? 1 : 0, scale: 0.75 });
+    if (pouring) pen.text('hold…', hx, hy - 52, { size: 17, font: 'gaegu' });
+    else if (k >= 0.66 && k < 0.8) pen.text('let go!', hx, hy - 60, { size: 17, color: BERRY });
+  },
+
   async play(g: Shell, level: number) {
     const drink = pick(DRINKS);
     const target = pickTarget();
@@ -118,7 +148,9 @@ export const pour: GameDef = {
       return { x: Math.max(70, w / 2 - cw / 2 - 10), y: h - 36 - ch, w: cw, h: ch };
     };
 
-    g.say(`pour the ${drink.name} to exactly <b>${target}%</b> full. hold to pour!`, 'focus');
+    const born = g.stage.time;
+    if (g.tutorial) g.say(`<b>press and hold</b> anywhere to pour. let go when the drink reaches the dashed line (${target}%).`, 'focus');
+    else g.say(`pour the ${drink.name} to exactly <b>${target}%</b> full. hold to pour!`, 'focus');
     const stage = g.stage;
     let pourT = 0;
     stage.draw = (pen, w, h, t, dt) => {
@@ -152,6 +184,18 @@ export const pour: GameDef = {
         else pen.circle(d.x, d.y, 4, { fill: drink.color, width: 1.6, seed: 90 + (i % 5) });
       }
       if (!started) pen.text('hold anywhere', w / 2, cup.y - 70, { size: 22, font: 'gaegu', alpha: 0.5 + Math.sin(t * 4) * 0.25 });
+      if (!started && t - born > 1.2) {
+        const k = (t - born) % 1.6;
+        drawHand(pen, cup.x + cup.w + 50, cup.y + cup.h * 0.5, { press: k > 0.3 && k < 1.2 ? 1 : 0, alpha: 0.9 });
+        if (k > 0.3 && k < 1.2) pen.text('hold…', cup.x + cup.w + 64, cup.y + cup.h * 0.5 - 40, { size: 18, font: 'gaegu' });
+      }
+      // training wheels: the target line and a live % while you pour
+      if (g.tutorial && !doneAt) {
+        const ty = cup.y + cup.h - (target / 100) * cup.h;
+        pen.line(cup.x - 14, ty, cup.x + cup.w + 14, ty, { stroke: BERRY, width: 3, dash: [8, 6], seed: 83 });
+        pen.text(`${target}%`, cup.x - 20, ty, { size: 20, color: BERRY, align: 'right', outline: WHITE });
+        if (started) pen.text(`${Math.round(fill * 100)}%`, cup.x + cup.w / 2, cup.y + cup.h - fill * cup.h - 22, { size: 22, outline: WHITE });
+      }
       if (doneAt) {
         const pop = easeOutBack(clamp((t - doneAt) / 0.4, 0, 1));
         const ty = cup.y + cup.h - (target / 100) * cup.h;

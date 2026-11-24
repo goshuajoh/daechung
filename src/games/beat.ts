@@ -3,6 +3,7 @@ import type { Pen, Pt } from '../lib/pen';
 import { sfx } from '../lib/audio';
 import { BERRY, BUTTER, INK, LILAC, PEACH, PINK, WHITE } from '../lib/palette';
 import { clamp, randInt } from '../lib/rng';
+import { drawHand } from '../lib/hand';
 
 type Mode = 'keep' | 'silent';
 interface Plan { mode: Mode; bpm: [number, number]; listen: number; gap: number }
@@ -97,11 +98,32 @@ export const beat: GameDef = {
     }
   },
 
+  steps: ['listen to the drum beat', 'when the drum <b>stops</b>, keep tapping the same beat', 'tap anywhere on the screen (or any key)'],
+
+  demo(pen, w, h, t) {
+    const iv = 0.5, D = iv * 8 + 1.4;
+    const tt = t % D;
+    const i = Math.floor(tt / iv), ph = (tt % iv) / iv;
+    const machine = i < 4, mine = i >= 4 && i < 8;
+    const hit = i < 8 ? Math.exp(-ph * 7) : 0;
+    const r = Math.min(w * 0.19, h * 0.26);
+    const cx = w * 0.5, cy = h * 0.5;
+    drawDrum(pen, cx, cy, r, hit, machine ? hit : 0);
+    const gap = Math.min(24, w * 0.07);
+    for (let k = 0; k < 8; k++) {
+      const lit = i >= k && i < 8;
+      pen.circle(w / 2 + (k - 3.5) * gap, h * 0.1, 6.5, { fill: lit ? (k < 4 ? PINK : BUTTER) : null, width: 2, seed: 70 + k });
+    }
+    pen.text(machine ? 'listen…' : mine ? 'your turn!' : 'nice!', w * 0.14, h * 0.5, { size: 18, color: mine ? BERRY : INK });
+    if (mine) drawHand(pen, cx - r * 0.1, cy, { press: hit, ripple: ph < 0.6 ? ph / 0.6 : undefined, scale: 0.75 });
+  },
+
   async play(g: Shell, level: number) {
     // Runs use one bar instead of two so the whole thing stays snappy.
     const base = PLAN[level];
-    const plan = g.quick && base.mode === 'keep' ? { ...base, listen: 4 } : base;
-    const YOUR_TAPS = g.quick ? 4 : 8;
+    const short = g.quick || g.tutorial;
+    const plan = short && base.mode === 'keep' ? { ...base, listen: 4 } : base;
+    const YOUR_TAPS = short ? 4 : 8;
     const bpm = randInt(plan.bpm[0], plan.bpm[1]);
     const iv = 60 / bpm;
     const ctx = sfx.ensure();
@@ -116,7 +138,9 @@ export const beat: GameDef = {
     const taps: number[] = []; // audio times (counted ones)
     const notes: Note[] = [];
 
-    if (plan.mode === 'keep') {
+    if (g.tutorial) {
+      g.say(`listen to 4 drum beats. when the drum <b>stops</b>, tap the screen 4 more times on the same beat. the circles help you!`, 'listen');
+    } else if (plan.mode === 'keep') {
       g.say(`<b>${bpm} BPM</b>. listen to ${plan.listen} beats, then <b>keep tapping</b> ${YOUR_TAPS} more on your own.`, 'listen');
     } else {
       g.say(`only ${plan.listen} clicks this time. keep counting in your head and <b>tap once on beat ${tapBeat + 1}</b>.`, 'focus');
@@ -154,6 +178,11 @@ export const beat: GameDef = {
         const ghost = mine && plan.mode === 'silent';
         pen.circle(x, y, ghost ? dr * 0.55 : dr, { fill, width: ghost ? 1.8 : 2.4, seed: 80 + i, alpha: ghost ? 0.35 : 1, dash: ghost ? [3, 4] : undefined });
       }
+      // training wheels: a ring pulses on each beat you should tap
+      if (g.tutorial && started && !done && plan.mode === 'keep' && bi >= plan.listen && bi < plan.listen + YOUR_TAPS) {
+        const ph = bf - bi;
+        pen.circle(x0 + bi * gapX, 40, dr * (1.5 + ph * 1.2), { stroke: BERRY, width: 3, alpha: Math.max(0, 1 - ph * 1.4), seed: 97 });
+      }
       if (plan.mode === 'keep') {
         const mid = x0 + (plan.listen - 0.5) * gapX;
         pen.line(mid, 24, mid, 56, { width: 2, seed: 99, alpha: 0.5 });
@@ -164,6 +193,11 @@ export const beat: GameDef = {
       // drum
       const r = Math.min(w * 0.22, h * 0.2, 120);
       drawDrum(pen, w / 2, h * 0.46, r, hit, hit);
+      // nudge: show a tapping hand when it's your turn and you haven't tapped
+      if (started && !done && plan.mode === 'keep' && bi >= plan.listen && !taps.length) {
+        const ph = bf - bi;
+        drawHand(pen, w / 2 - r * 0.15, h * 0.46 - r * 0.05, { press: Math.exp(-ph * 6), ripple: ph < 0.6 ? ph / 0.6 : undefined, alpha: 0.9 });
+      }
 
       // notes
       for (let i = notes.length - 1; i >= 0; i--) {
