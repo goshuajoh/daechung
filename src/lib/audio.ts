@@ -7,11 +7,18 @@ class Sfx {
   private master: GainNode | null = null;
   private noiseBuf: AudioBuffer | null = null;
   muted = false;
+  /** When the last scheduled sound finishes (AudioContext time). */
+  private lastEnd = 0;
+  private awake = 0;
 
   constructor() {
     try {
       this.muted = localStorage.getItem(KEY) === '1';
     } catch { /* storage blocked */ }
+    // switching apps / locking the phone: stop the audio hardware right away
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && this.ctx?.state === 'running') void this.ctx.suspend();
+    });
   }
 
   /** Must be called from a user gesture at least once. */
@@ -34,6 +41,39 @@ class Sfx {
     }
     if (this.ctx.state === 'suspended') void this.ctx.resume();
     return this.ctx;
+  }
+
+  /**
+   * A running AudioContext keeps the audio hardware busy (and the phone warm)
+   * even in silence, so we suspend it whenever nothing has played for a bit.
+   */
+  private idleTimer = 0;
+  private scheduleIdle() {
+    clearTimeout(this.idleTimer);
+    this.idleTimer = window.setTimeout(() => {
+      const c = this.ctx;
+      if (!c || c.state !== 'running' || this.awake > 0) return;
+      if (c.currentTime < this.lastEnd + 1.5) return this.scheduleIdle();
+      void c.suspend();
+    }, 2500);
+  }
+
+  /** Keep the clock running (e.g. the beat game measures taps against it). Call the returned fn to release. */
+  keepAwake(): () => void {
+    this.ensure();
+    this.awake++;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.awake--;
+      this.scheduleIdle();
+    };
+  }
+
+  private track(end: number) {
+    this.lastEnd = Math.max(this.lastEnd, end);
+    this.scheduleIdle();
   }
 
   get now() {
@@ -69,6 +109,7 @@ class Sfx {
     osc.connect(g).connect(this.master!);
     osc.start(t);
     osc.stop(t + dur + 0.02);
+    this.track(t + dur);
   }
 
   noise(dur: number, o: { freq?: number; to?: number; q?: number; vol?: number; at?: number; type?: BiquadFilterType } = {}) {
@@ -88,6 +129,7 @@ class Sfx {
     src.connect(f).connect(g).connect(this.master!);
     src.start(t);
     src.stop(t + dur + 0.02);
+    this.track(t + dur);
   }
 
   /* ——— the kit ——— */

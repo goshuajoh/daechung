@@ -274,6 +274,7 @@ export const trajectory: GameDef = {
     g.setMood('wow');
     await g.wait(250);
     sfx.whoosh(0.5);
+    stage.boost(4000);
     phase = 'fly';
     phaseAt = stage.time;
     const { path: p0 } = layout(stage.w, stage.h);
@@ -327,6 +328,7 @@ export const trajectory: GameDef = {
     hover = null;
     g.look = undefined;
     phase = 'reveal';
+    stage.boost(3000);
     phaseAt = stage.time;
     g.setMood('wow');
     const rest = (1 - visible) * p0.T;

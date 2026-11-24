@@ -87,7 +87,7 @@ export function startParty(app: HTMLElement, games: GameDef[], exit: () => void)
           </div>
           <button class="btn primary start"><span>start the party</span></button>
         </div>`, exit);
-      const stage = new Stage(root.querySelector('.crowd')!, 'crowd-canvas');
+      const stage = new Stage(root.querySelector('.crowd')!, 'crowd-canvas', { fps: 20 });
       stage.draw = (pen, w, h, t) => crowd(pen, w, h, t, players);
       swap(() => {
         stage.destroy();
@@ -153,7 +153,7 @@ export function startParty(app: HTMLElement, games: GameDef[], exit: () => void)
           <small>${count} mini-games · each one on a timer</small>
         </div>`, exit);
       root.style.setProperty('--pc', p.body);
-      const stage = new Stage(root.querySelector('.pass-kongi')!, 'pass-canvas');
+      const stage = new Stage(root.querySelector('.pass-kongi')!, 'pass-canvas', { fps: 20 });
       stage.draw = (pen, w, h, t) => drawKongi(pen, w / 2, h - 8, Math.min(w * 0.6, h * 0.75), 'cheer', t, { body: p.body });
       swap(() => {
         stage.destroy();
@@ -220,7 +220,7 @@ export function startParty(app: HTMLElement, games: GameDef[], exit: () => void)
             <button class="btn home"><span>${icons.home} home</span></button>
           </div>
         </div>`, exit);
-      const stage = new Stage(root.querySelector('.podium')!, 'podium-canvas');
+      const stage = new Stage(root.querySelector('.podium')!, 'podium-canvas', { fps: 24 });
       stage.draw = (pen, w, h, t) => drawPodium(pen, w, h, t, ranked);
       swap(() => {
         stage.destroy();

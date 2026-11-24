@@ -117,8 +117,10 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
   });
 
   const stages: Stage[] = [];
-  const mount = (host: Element, cls: string, draw: Stage['draw']) => {
-    const s = new Stage(host as HTMLElement, cls);
+  // Home is ambient art: low frame rates (it reads as stop-motion, which suits the doodles)
+  // and every canvas pauses itself when scrolled off-screen.
+  const mount = (host: Element, cls: string, draw: Stage['draw'], fps = 12) => {
+    const s = new Stage(host as HTMLElement, cls, { fps, maxDpr: 2 });
     s.draw = draw;
     stages.push(s);
     return s;
@@ -130,7 +132,7 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
   const kongi = mount(kongiSlot, 'kongi-hero', (pen, w, h, t) => {
     if (t > moodUntil) mood = Math.floor(t / 5) % 3 === 2 ? 'idle' : 'happy';
     drawKongi(pen, w / 2, h - 10, Math.min(w * 0.7, h * 0.72), mood, t);
-  });
+  }, 20);
   kongiSlot.addEventListener('click', () => {
     mood = 'cheer';
     moodUntil = kongi.time + 1.6;

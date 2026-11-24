@@ -174,10 +174,10 @@ export class Shell {
     this.setHeader(opts.title, opts.kr, opts.color);
 
     const wrap = $('.stage-wrap');
-    this.stage = new Stage(wrap, 'stage');
+    this.stage = new Stage(wrap, 'stage', { fps: 30, activeFps: 60 });
     wrap.insertBefore(this.stage.canvas, this.overlay);
 
-    this.kongi = new Stage($('.kongi-slot'), 'kongi-mini');
+    this.kongi = new Stage($('.kongi-slot'), 'kongi-mini', { fps: 20 });
     this.kongi.draw = (pen, w, h, t, dt) => {
       this.bop = Math.max(0, this.bop - dt * 5);
       drawKongi(pen, w / 2, h - 6, Math.min(w * 0.72, h * 0.8), this.mood, t, { look: this.look, bop: this.bop, body: opts.player?.body });
@@ -474,7 +474,7 @@ export class Shell {
       <ol class="howto-steps">${def.steps.map((st, k) => `<li style="--d:${300 + k * 160}ms"><i>${k + 1}</i><span>${st}</span></li>`).join('')}</ol>`);
     card.style.setProperty('--tc', def.color);
     this.overlay.appendChild(card);
-    const demo = new Stage(card.querySelector<HTMLElement>('.howto-demo')!, 'demo-canvas');
+    const demo = new Stage(card.querySelector<HTMLElement>('.howto-demo')!, 'demo-canvas', { fps: 30 });
     demo.draw = (pen, w, h, t) => def.demo(pen, w, h, t);
     this.demoCleanup = () => {
       demo.destroy();

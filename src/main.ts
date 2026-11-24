@@ -34,10 +34,8 @@ function route() {
   if (!cleanup) cleanup = renderHome(app, games, (h) => (location.hash = `/${h}`));
 }
 
-// Line boil for DOM doodles: re-seed the SVG turbulence a few times a second.
-const noise = document.getElementById('wob-noise');
-let seed = 0;
-setInterval(() => noise?.setAttribute('seed', String((seed = (seed + 1) % 4) + 1)), 150);
+// Note: DOM doodle borders use a *static* SVG wobble filter. Re-seeding it every
+// frame made Safari re-render every filtered element ~7x/sec (CPU-only filters).
 
 window.addEventListener('hashchange', route);
 // Canvas text needs the fonts loaded up front (the DOM alone won't trigger them in time).
