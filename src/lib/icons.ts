@@ -3,6 +3,7 @@ const svg = (body: string, vb = '0 0 32 32') =>
   `<svg viewBox="${vb}" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 
 export const icons = {
+  pillow: '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4.2 7.4c4 1.6 8 2.3 11.9 2.3 4 0 7.9-.8 11.7-2.3-1.6 2.9-2.3 5.8-2.2 8.7.1 2.9.9 5.7 2.3 8.6-3.9-1.6-7.9-2.4-11.9-2.4-4 0-7.9.8-11.8 2.4 1.4-2.9 2.2-5.8 2.2-8.6 0-2.9-.8-5.8-2.2-8.7z" fill="#d6e8fa" stroke="currentColor" stroke-width="2.3" stroke-linejoin="round"/><path d="M11.2 15.2c1.4 1.1 2.9 1.1 4.3 0M16.8 15.2c1.4 1.1 2.9 1.1 4.3 0" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>',
   back: svg('<path d="M19.5 7.2C15.8 10.4 12.6 13.3 9.4 16.3c3.3 2.7 6.6 5.6 10.3 8.6"/><path d="M10.2 16.1c4.9-.3 9.3-.1 13.6.4"/>'),
   soundOn: svg('<path d="M5.2 12.6c1.8-.2 3.5-.1 5.1 0 2.4-2.3 4.6-4.1 6.9-5.6.4 6 .3 11.7-.1 17.9-2.3-1.6-4.6-3.4-6.9-5.5-1.7.1-3.3.2-5 .1-.4-2.4-.4-4.6 0-6.9z"/><path d="M21.3 12.2c1.4 1.3 1.6 5.6.1 7.4"/><path d="M24.6 9.1c3 2.9 3.2 10.5 0 13.9"/>'),
   soundOff: svg('<path d="M5.2 12.6c1.8-.2 3.5-.1 5.1 0 2.4-2.3 4.6-4.1 6.9-5.6.4 6 .3 11.7-.1 17.9-2.3-1.6-4.6-3.4-6.9-5.5-1.7.1-3.3.2-5 .1-.4-2.4-.4-4.6 0-6.9z"/><path d="M21.4 12.6c1.9 2.2 3.9 4.6 6.1 7"/><path d="M27.3 12.4c-2.1 2.4-4 4.7-5.8 7.3"/>'),

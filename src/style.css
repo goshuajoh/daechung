@@ -749,6 +749,15 @@ button { font: inherit; color: inherit; }
 .streak b { font-family: var(--display); font-weight: 400; font-size: 16px; }
 .streak.cold svg { filter: grayscale(1); opacity: .45; }
 .streak.cold b { opacity: .6; }
+.streak .pils { display: inline-flex; margin-left: 4px; }
+.streak .pils svg { width: 22px; height: 22px; margin-left: -3px; }
+.nap-note { flex-basis: 100%; font-size: 15px; line-height: 1.15; color: var(--berry); }
+.streak-chip svg + svg { margin-left: 2px; }
+.pillow-row { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 4px; }
+.pillow-row svg { width: 24px; height: 24px; }
+.pillow-row b { font-family: var(--display); font-weight: 400; font-size: 16px; }
+.pillow-row small { grid-column: 1 / -1; font-size: 14px; line-height: 1.15; opacity: .65; }
+.pillow-row.none svg { filter: grayscale(1); opacity: .45; }
 
 .challenge-ribbon {
   display: flex; align-items: center; gap: 8px; width: 100%;

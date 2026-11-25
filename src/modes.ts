@@ -317,7 +317,7 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
     const head = rival
       ? `<div class="vs"><span>you <b>${total}</b></span><i>vs</i><span>${esc(rival.name)} <b>${rival.total}</b></span></div>`
       : '';
-    const streakChip = streak && streak.streak > 0 ? `<div class="streak-chip">${icons.flame}<b>${streak.streak}-day streak</b></div>` : '';
+    const streakChip = streak && streak.streak > 0 ? `<div class="streak-chip">${icons.flame}<b>${streak.streak}-day streak</b>${streak.napped ? icons.pillow : ''}</div>` : '';
     const card = shell.card(`
       <div class="final-label">${label}</div>
       ${streakChip}
@@ -368,8 +368,12 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
       return void holdStamps(false);
     }
     holdStamps(false);
+    if (streak?.napped)
+      shell.say(`you missed ${streak.napped > 1 ? `${streak.napped} days` : 'yesterday'}, so I napped on a <b>pillow</b> for you. streak saved!`, 'happy');
+    else if (streak?.pillow)
+      shell.say(`${streak.streak} days in a row earns a <b>nap pillow</b>! if you miss a day, it saves your streak. (you have ${streak.pillows})`, 'cheer');
     // after (not before) the first daily, so it never stands between a new player and the game
-    if (kind === 'daily' && isIOS() && !standalone() && firstTime('a2hs'))
+    else if (kind === 'daily' && isIOS() && !standalone() && firstTime('a2hs'))
       shell.say('optional: <b>Share → Add to Home Screen</b> turns 대충 into an app. (on iPhone the app keeps its own streak.)', 'happy');
     const text = `대충 ${label}: ${total}/${max} “${runRank(ratio)}”${rival ? ` (vs ${rival.name} ${rival.total})` : ''}`;
     for (;;) {

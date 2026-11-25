@@ -1,7 +1,7 @@
 import { Stage } from './lib/stage';
 import { drawKongi, type Mood } from './lib/kongi';
 import { getBest } from './lib/store';
-import { body, dayScore, firstTime, forgetTutorials, hat, levelOf, newStamps, streak, xp } from './lib/progress';
+import { body, dayScore, firstTime, forgetTutorials, hat, levelOf, newStamps, pillows, streak, streakNeedsNap, xp } from './lib/progress';
 import { friends, getPending } from './challenge';
 import { closet } from './closet';
 import { canPrompt, isIOS, onInstallChange, promptInstall, standalone } from './install';
@@ -78,7 +78,10 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
         <p class="tag">${games.length} tiny games for people who eyeball everything.</p>
         <div class="me">
           <button class="lvl${newStamps() ? ' has-new' : ''}" aria-label="level ${lv.level}, open your profile${newStamps() ? ' (new stamps!)' : ''}"><b>Lv ${lv.level}</b><i><u style="width:${(lv.into / lv.need) * 100}%"></u></i><span>${lv.into}/${lv.need} xp</span></button>
-          <span class="streak ${streakNow ? '' : 'cold'}">${icons.flame}<b>${streakNow ? `${streakNow}-day streak` : 'start a streak!'}</b></span>
+          <span class="streak ${streakNow ? '' : 'cold'}">${icons.flame}<b>${streakNow ? `${streakNow}-day streak` : 'start a streak!'}</b>${
+            pillows() ? `<span class="pils" role="img" aria-label="${pillows()} nap pillow${pillows() > 1 ? 's' : ''}">${icons.pillow.repeat(pillows())}</span>` : ''
+          }</span>
+          ${streakNeedsNap(day.n) && dailyBest == null ? '<span class="nap-note">missed yesterday? a pillow saves your streak if you play today.</span>' : ''}
         </div>
       </div>
     </header>

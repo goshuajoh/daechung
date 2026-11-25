@@ -24,11 +24,13 @@ interface Progress {
   top: Record<string, number>;
   /** stamp id → when it was earned */
   stamps: Record<string, number>;
+  /** nap pillows: each one covers a missed day so the streak survives */
+  pillows: number;
   /** how many stamps the stamp book has shown (for the "new!" dot) */
   seen: number;
 }
 
-const fresh = (): Progress => ({ plays: {}, hist: {}, xp: 0, hat: 'none', body: 'white', streak: { last: 0, count: 0, best: 0 }, days: {}, name: '', hints: {}, stamps: {}, seen: 0, top: {} });
+const fresh = (): Progress => ({ plays: {}, hist: {}, xp: 0, hat: 'none', body: 'white', streak: { last: 0, count: 0, best: 0 }, days: {}, name: '', hints: {}, stamps: {}, seen: 0, top: {}, pillows: 0 });
 
 let cache: Progress | null = null;
 
@@ -173,26 +175,52 @@ export function setHat(id: string) {
 
 /* ——— daily streak ——— */
 
+/** Every 5 days in a row earns a nap pillow; you can hold this many. */
+export const MAX_PILLOWS = 2;
+
 export function recordDaily(n: number, score: number) {
   const p = load();
   const s = p.streak;
+  p.pillows ??= 0;
   const firstToday = s.last !== n;
-  // played before, then skipped at least two days
-  const back = firstToday && s.last > 0 && n - s.last >= 3;
+  const missed = s.last > 0 ? n - s.last - 1 : 0;
+  // missed days that pillows can cover: Kongi naps through them and the streak lives on
+  const napped = firstToday && missed > 0 && s.count > 0 && missed <= p.pillows ? missed : 0;
+  // played before, then skipped at least two days (and no pillow saved it)
+  const back = firstToday && !napped && s.last > 0 && missed >= 2;
+  let pillow = false;
   if (firstToday) {
-    s.count = s.last === n - 1 ? s.count + 1 : 1;
+    s.count = s.last === n - 1 || napped ? s.count + 1 : 1;
+    p.pillows -= napped;
     s.last = n;
     s.best = Math.max(s.best, s.count);
+    if (s.count % 5 === 0 && p.pillows < MAX_PILLOWS) {
+      p.pillows++;
+      pillow = true;
+    }
   }
   p.days[n] = Math.max(p.days[n] ?? 0, score);
   save();
-  return { streak: s.count, best: s.best, firstToday, back };
+  return { streak: s.count, best: s.best, firstToday, back, napped, pillow, pillows: p.pillows };
 }
 
-/** Current streak (0 if they missed yesterday and haven't played today). */
+/** Current streak: alive if you played today or yesterday, or your pillows can cover the gap. */
 export function streak(today: number) {
+  const p = load();
+  const s = p.streak;
+  if (s.last === today || s.last === today - 1) return s.count;
+  const missed = today - s.last - 1;
+  return s.last > 0 && missed > 0 && missed <= (p.pillows ?? 0) ? s.count : 0;
+}
+
+/** True when today's Daily would spend a pillow (you missed yesterday). */
+export function streakNeedsNap(today: number) {
   const s = load().streak;
-  return s.last === today || s.last === today - 1 ? s.count : 0;
+  return s.last > 0 && s.last < today - 1 && streak(today) > 0;
+}
+
+export function pillows() {
+  return load().pillows ?? 0;
 }
 
 export function dayScore(n: number): number | null {

@@ -3,7 +3,7 @@ import { drawKongi } from './lib/kongi';
 import { el, esc, muteButton, type GameDef } from './lib/shell';
 import { icons } from './lib/icons';
 import { sfx } from './lib/audio';
-import { allDays, bestStreak, body, hasStamp, hat, history, levelOf, markStampsSeen, playerName, plays, setPlayerName, stampCount, streak, xp } from './lib/progress';
+import { MAX_PILLOWS, allDays, bestStreak, body, hasStamp, hat, history, levelOf, markStampsSeen, pillows, playerName, plays, setPlayerName, stampCount, streak, xp } from './lib/progress';
 import { STAMPS, stampCanvas } from './lib/stamps';
 import { getBest } from './lib/store';
 import { today, RUN_LENGTH } from './modes';
@@ -103,6 +103,7 @@ export function renderProfile(app: HTMLElement, games: GameDef[], exit: () => vo
           <label class="me-name">name <input maxlength="14" placeholder="shown to friends" value="${esc(playerName())}" /></label>
           <div class="lvl"><b>Lv ${lv.level}</b><i><u style="width:${(lv.into / lv.need) * 100}%"></u></i><span>${lv.into}/${lv.need} xp</span></div>
           <div class="streak ${streak(day.n) ? '' : 'cold'}">${icons.flame}<b>${streak(day.n)}-day streak</b><em>best ${bestStreak()}</em></div>
+          <div class="pillow-row${pillows() ? '' : ' none'}">${icons.pillow}<b>${pillows()}/${MAX_PILLOWS} nap pillows</b><small>every 5 days in a row earns one. each saves your streak for a missed day.</small></div>
           <button class="btn hat-btn"><span>change hat</span></button>
         </div>
       </div>
