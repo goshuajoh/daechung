@@ -58,6 +58,7 @@ export const dots: GameDef = {
   id: 'dots',
   name: 'Quick Count',
   kr: '몇 개?',
+  short: 'Count',
   blurb: 'A pile of beans flashes for 5 seconds. How many?',
   howto: "Beans will flash on screen for <b>a few seconds</b>. Don't count one by one — just guess how many!",
   color: SKY,

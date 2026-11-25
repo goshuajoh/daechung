@@ -26,11 +26,11 @@ interface Progress {
   stamps: Record<string, number>;
   /** nap pillows: each one covers a missed day so the streak survives */
   pillows: number;
-  /** how many stamps the stamp book has shown (for the "new!" dot) */
-  seen: number;
+  /** when the stamp book was last looked at (stamps earned after it are "new") */
+  seenAt: number;
 }
 
-const fresh = (): Progress => ({ plays: {}, hist: {}, xp: 0, hat: 'none', body: 'white', streak: { last: 0, count: 0, best: 0 }, days: {}, name: '', hints: {}, stamps: {}, seen: 0, top: {}, pillows: 0 });
+const fresh = (): Progress => ({ plays: {}, hist: {}, xp: 0, hat: 'none', body: 'white', streak: { last: 0, count: 0, best: 0 }, days: {}, name: '', hints: {}, stamps: {}, seenAt: 0, top: {}, pillows: 0 });
 
 let cache: Progress | null = null;
 
@@ -262,12 +262,18 @@ export function stampCount() {
   return Object.keys(load().stamps).length;
 }
 
-/** Stamps earned since the stamp book was last opened. */
+/** Stamps earned since the stamp book was last looked at. */
 export function newStamps() {
-  return Math.max(0, stampCount() - (load().seen ?? 0));
+  const p = load();
+  return Object.values(p.stamps).filter((at) => at > (p.seenAt ?? 0)).length;
+}
+
+export function isNewStamp(id: string) {
+  const p = load();
+  return (p.stamps[id] ?? 0) > (p.seenAt ?? 0);
 }
 
 export function markStampsSeen() {
-  load().seen = stampCount();
+  load().seenAt = Date.now();
   save();
 }

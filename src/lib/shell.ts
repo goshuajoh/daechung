@@ -26,6 +26,8 @@ export interface GameDef {
   color: string;
   /** Has its own timing, so no countdown bar (speed bonus is flat). */
   untimed?: boolean;
+  /** One-word English label for small spaces (result tiles, share card). */
+  short: string;
   /** First daily number this game can appear in, so adding a game never reshuffles a daily people are already playing. */
   since?: number;
   /** Practice ranks: [minimum total out of 500, title], highest first. */
@@ -246,10 +248,38 @@ export class Shell {
   private leaveOpen = false;
   private stayers: (() => void)[] = [];
 
-  /** Resolves at once, or once the player answers "keep playing". */
-  private gate(): Promise<void> {
-    if (!this.leaveOpen) return Promise.resolve();
-    return this.until<void>((done) => void this.stayers.push(() => done()));
+  /** True while a mini-game's play() is running (so "leave?" has to stop it). */
+  private inRound = false;
+  /** Set when "leave?" stopped a round: it's played again (fresh puzzle) if they stay. */
+  private replay = false;
+
+  /** Resolves at once (false), or once the player answers "keep playing" (true). */
+  private async gate(): Promise<boolean> {
+    if (!this.leaveOpen) return false;
+    await this.until<void>((done) => void this.stayers.push(() => done()));
+    return true;
+  }
+
+  /* The phone's back gesture: while a run is going, an extra history entry
+     catches it and asks "leave this run?" instead of silently quitting. */
+  private guarded = false;
+  private onPop = () => {
+    if (!this.guarded) return;
+    history.pushState({ dcGuard: 1 }, '', location.href);
+    if (this.running) this.confirmLeave();
+  };
+  private guard() {
+    if (this.guarded || !this.timed) return;
+    this.guarded = true;
+    history.pushState({ dcGuard: 1 }, '', location.href);
+    window.addEventListener('popstate', this.onPop);
+  }
+  private unguard() {
+    if (!this.guarded) return;
+    this.guarded = false;
+    window.removeEventListener('popstate', this.onPop);
+    // still on our extra entry (the run ended normally): step off it quietly
+    if ((history.state as { dcGuard?: number } | null)?.dcGuard) history.back();
   }
 
   /** "Leave this run?" — the clock pauses while you decide. */
@@ -257,6 +287,11 @@ export class Shell {
     if (this.leaveOpen) return;
     this.leaveOpen = true;
     this.pauseClock();
+    // a round in progress can't be frozen (things fly, flash, roll), so stop it; "keep playing" restarts it
+    if (this.inRound) {
+      this.replay = true;
+      this.roundAc.abort();
+    }
     const m = el('div', 'leave-wrap', `<div class="leave-card" role="dialog" aria-label="leave this run?">
         <b>leave this run?</b><p>your score so far won't be saved.</p>
         <div><button class="btn primary stay"><span>keep playing</span></button><button class="btn go"><span>leave</span></button></div>
@@ -701,6 +736,7 @@ export class Shell {
     const results: StepResult[] = [];
     this.combo = 0;
     this.running = true;
+    this.guard();
     try {
       for (let i = 0; i < steps.length; i++) {
         const { game, level } = steps[i];
@@ -712,17 +748,38 @@ export class Shell {
         this.clearActions();
         await this.gate();
         if (this.timed) await this.briefing(game, i);
-        await this.gate();
-        this.timeLeft = null;
-        this.currentGame = game;
-        seedRandom(seed == null ? null : (seed * 7919 + (i + 1) * 104729 + level) | 0);
-        stayLively();
-        let res: RoundResult;
-        try {
-          res = await game.play(this, level);
-        } finally {
-          seedRandom(null);
-          this.hideClock();
+        // the briefing ran on behind "leave?": count them in again
+        if ((await this.gate()) && this.timed) await this.goFlash();
+        let res!: RoundResult;
+        for (let again = 0; ; again++) {
+          this.timeLeft = null;
+          this.currentGame = game;
+          // a replay gets a different puzzle, so peeking behind "leave?" doesn't help
+          seedRandom(seed == null ? null : (seed * 7919 + (i + 1) * 104729 + level + again * 7717) | 0);
+          stayLively();
+          this.inRound = true;
+          try {
+            res = await game.play(this, level);
+            break;
+          } catch (e) {
+            if (!isAbort(e) || this.signal.aborted || !this.replay) throw e;
+          } finally {
+            this.inRound = false;
+            seedRandom(null);
+            this.hideClock();
+          }
+          // stopped by "leave?": wait for the answer, then the same game again from the top
+          this.replay = false;
+          this.roundAc = new AbortController();
+          this.stage.draw = null;
+          this.stage.clear();
+          this.overlay.innerHTML = '';
+          this.clearActions();
+          this.look = undefined;
+          this.setMood('idle');
+          await this.gate();
+          this.say('from the top! (new puzzle)', 'happy');
+          await this.goFlash();
         }
         addPlay(game.id, this.who);
         const acc = Math.round(clamp(res.score, 0, 100));
@@ -748,6 +805,7 @@ export class Shell {
     } finally {
       this.running = false;
       this.currentGame = null;
+      this.unguard();
     }
   }
 
@@ -800,8 +858,16 @@ export class Shell {
       vs = ` <em>· ${esc(rival.name)} got ${theirs} ${mine > theirs ? '(you win this one!)' : mine === theirs ? '(tie!)' : '(they win this one)'}</em>`;
     }
     this.say(`${detail} <em>· ${sub}</em>${vs}`);
+    // once the number has landed, the sticker tucks into the corner so the answer underneath shows
+    const tuck = window.setTimeout(() => s.classList.add('tuck'), 1100);
     if (this.timed && !last) await Promise.race([this.button('next'), this.wait(rival ? 3400 : 2800)]);
     else await this.button(last ? 'see results' : 'next round');
+    // it moved on behind "leave?": give them a moment to read it
+    if ((await this.gate()) && this.timed && !last) {
+      this.clearActions();
+      await Promise.race([this.button('next'), this.wait(2200)]);
+    }
+    clearTimeout(tuck);
     this.clearActions();
     s.classList.add('bye');
   }

@@ -83,6 +83,7 @@ export const trajectory: GameDef = {
   id: 'trajectory',
   name: "Where'd it Land?",
   kr: '궤도',
+  short: 'Landing',
   blurb: 'The ball turns invisible mid-air. Call the landing spot.',
   howto: "I'll fling a ball. Halfway through it goes <b>invisible</b> — tap the ground where you think it'll land!",
   color: MINT,

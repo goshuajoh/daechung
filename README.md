@@ -96,7 +96,7 @@ No image assets and no emoji: everything is drawn in code.
 
 ## Install & offline
 
-It's a PWA: add it to your home screen (Chrome shows an install button; on iPhone use Share → Add to Home Screen) and it runs full-screen with its own Kongi icon. A service worker precaches the build, so after the first visit everything, fonts included, works offline. On iPhone the home-screen app keeps its own storage, separate from Safari, so after your first Daily a one-time tip mentions it.
+It's a PWA: add it to your home screen (Chrome shows an install button; on iPhone use Share → Add to Home Screen) and it runs full-screen with its own Kongi icon. A service worker precaches the build, so after the first visit everything, fonts included, works offline. On iPhone the home-screen app keeps its own storage, separate from Safari, so the home screen shows a small tip about it on iPhone Safari.
 
 ## Keeping phones cool
 

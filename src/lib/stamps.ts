@@ -39,15 +39,15 @@ const STAMPS_: Stamp[] = [
     },
   },
   {
-    id: 'speedy', name: 'speedy', hint: 'get +18 speed or more on a round', ink: '#5b8fc4', bg: SKY,
+    id: 'speedy', name: 'speedy', hint: 'answer super fast (a +18 speed bonus)', ink: '#5b8fc4', bg: SKY,
     icon: (p, x, y, r, ink) => p.poly([[x + 0.15 * r, y - r], [x - 0.5 * r, y + 0.12 * r], [x - 0.02 * r, y + 0.12 * r], [x - 0.2 * r, y + r], [x + 0.52 * r, y - 0.18 * r], [x + 0.04 * r, y - 0.18 * r]].map(([a, b]) => [a, b] as Pt), { stroke: ink, fill: BUTTER, width: 2.6, seed: 15, rough: 0.5 }),
   },
   {
-    id: 'combo', name: 'on fire', hint: '4 good rounds in a row', ink: '#d9603f', bg: PEACH,
+    id: 'combo', name: 'on fire', hint: 'score 70+ four rounds in a row', ink: '#d9603f', bg: PEACH,
     icon: (p, x, y, r, ink) => flame(p, x, y + r * 0.05, r, ink),
   },
   {
-    id: 'great', name: 'sharp eyes', hint: 'score 75% of the max in a run', ink: '#4f9a6a', bg: MINT,
+    id: 'great', name: 'sharp eyes', hint: 'score 900+ in a Daily or Quick Run', ink: '#4f9a6a', bg: MINT,
     icon: (p, x, y, r, ink) => {
       p.ellipse(x, y, r * 0.95, r * 0.55, { stroke: ink, fill: WHITE, width: 2.6, seed: 16 });
       p.circle(x, y, r * 0.36, { stroke: ink, fill: '#7cc495', width: 2.2, seed: 17 });
@@ -55,7 +55,7 @@ const STAMPS_: Stamp[] = [
     },
   },
   {
-    id: 'legend', name: 'human ruler', hint: 'score 85% of the max in a run', ink: '#9a6a2a', bg: BUTTER,
+    id: 'legend', name: 'human ruler', hint: 'score 1020+ in a Daily or Quick Run', ink: '#9a6a2a', bg: BUTTER,
     icon: (p, x, y, r, ink) => {
       p.rrect(x - r * 0.95, y - r * 0.32, r * 1.9, r * 0.64, 5, { stroke: ink, fill: '#ffd36b', width: 2.6, seed: 19 });
       for (let i = 1; i < 8; i++) p.line(x - r * 0.95 + (i * r * 1.9) / 8, y - r * 0.32, x - r * 0.95 + (i * r * 1.9) / 8, y - r * 0.32 + (i % 2 ? r * 0.22 : r * 0.34), { stroke: ink, width: 2, seed: 20 + i });

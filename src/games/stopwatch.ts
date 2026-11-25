@@ -57,6 +57,7 @@ export const stopwatch: GameDef = {
   id: 'stopwatch',
   name: 'Inner Clock',
   kr: '몇 초?',
+  short: 'Clock',
   blurb: 'Stop the watch at exactly 5 seconds. It falls asleep after one.',
   howto: 'Tap to <b>start</b>, then tap again when you think the time is up. The watch naps after the first second!',
   verb: 'count the seconds!',

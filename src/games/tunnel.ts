@@ -58,6 +58,7 @@ export const tunnel: GameDef = {
   id: 'tunnel',
   name: 'Tunnel',
   kr: '터널',
+  short: 'Tunnel',
   blurb: 'A ball rolls into a tunnel. Tap the moment it passes under the flag.',
   howto: 'The ball rolls at a steady speed into the tunnel. <b>Tap the moment it is under the flag</b>, even though you can\'t see it!',
   verb: 'tap when it reaches the flag!',

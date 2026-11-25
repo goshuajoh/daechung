@@ -7,7 +7,6 @@ import { seedRandom, shuffle } from './lib/rng';
 import { BUTTER, LILAC, WHITE } from './lib/palette';
 import { sfx } from './lib/audio';
 import { type LevelInfo, addXp, body, firstTime, hat, levelOf, topScore, playerName, plays, recordDaily, setBody, setHat, setPlayerName, xp } from './lib/progress';
-import { isIOS, standalone } from './install';
 import { bodyForLevel, hatForLevel, hatForStreak } from './lib/hats';
 import { challengeLink, friends, getPending, setPending, type Challenge } from './challenge';
 import { shareResult } from './share';
@@ -69,7 +68,7 @@ export function tiles(results: StepResult[], rival?: number[] | null) {
       const pts = r.acc + r.bonus;
       const vs = rival?.[i];
       const mark = vs == null ? '' : `<i class="${pts > vs ? 'win' : pts < vs ? 'lose' : 'tie'}">${pts > vs ? 'W' : pts < vs ? 'L' : '='}</i>`;
-      return `<div class="tile${r.acc >= 90 ? ' star' : ''}" style="--c:${r.game.color};--d:${i * 70}ms" title="${r.game.name}: ${r.acc} + ${r.bonus} speed"><b>${pts}</b><span>${r.game.kr}</span>${mark}</div>`;
+      return `<div class="tile${r.acc >= 90 ? ' star' : ''}" style="--c:${r.game.color};--d:${i * 70}ms" title="${r.game.name}: ${r.acc} + ${r.bonus} speed"><b>${pts}</b><span>${r.game.short}</span>${mark}</div>`;
     })
     .join('')}</div>`;
 }
@@ -331,7 +330,9 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
     shell.confetti(rival ? (won ? 1 : 0.3) : ratio);
     if (rival) shell.banner(won ? 'YOU WIN!' : total === rival.total ? 'TIE!' : 'SO CLOSE…');
     shell.setMood(rival ? (won ? 'cheer' : 'sad') : ratio >= 0.7 ? 'cheer' : ratio >= 0.45 ? 'happy' : 'sad');
-    shell.say(
+    // the very first result explains the numbers
+    const firstResult = firstTime('first-result');
+    const comment =
       rival
         ? won
           ? `you beat <b>${esc(rival.name)}</b>! send it back so they can try again.`
@@ -342,10 +343,12 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
           ? `<b>${streak.streak} days in a row!</b> see you tomorrow?`
           : ratio >= 0.8
             ? 'you might actually be a ruler.'
-            : ratio >= 0.55
-              ? 'nicely eyeballed! now challenge a friend.'
-              : 'very 대충. which is the point, honestly.',
-    );
+            : firstResult
+              ? `each game is worth up to <b>100</b>, plus up to 20 for speed, so ${max} is perfect.${kind === 'daily' ? ' a new Daily comes out every day!' : ''}`
+              : ratio >= 0.55
+                ? 'nicely eyeballed! now challenge a friend.'
+                : 'very 대충. which is the point, honestly.';
+    shell.say(comment);
     // earned now (saved straight away), shown once the celebrations are over
     runStamps(games, ratio);
     if (kind === 'daily' && isToday) {
@@ -372,9 +375,8 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
       shell.say(`you missed ${streak.napped > 1 ? `${streak.napped} days` : 'yesterday'}, so I napped on a <b>pillow</b> for you. streak saved!`, 'happy');
     else if (streak?.pillow)
       shell.say(`${streak.streak} days in a row earns a <b>nap pillow</b>! if you miss a day, it saves your streak. (you have ${streak.pillows})`, 'cheer');
-    // after (not before) the first daily, so it never stands between a new player and the game
-    else if (kind === 'daily' && isIOS() && !standalone() && firstTime('a2hs'))
-      shell.say('optional: <b>Share → Add to Home Screen</b> turns 대충 into an app. (on iPhone the app keeps its own streak.)', 'happy');
+    // back to the result comment (a level-up or streak reward may have replaced it)
+    else shell.say(comment);
     const text = `대충 ${label}: ${total}/${max} “${runRank(ratio)}”${rival ? ` (vs ${rival.name} ${rival.total})` : ''}`;
     for (;;) {
       let i: number;

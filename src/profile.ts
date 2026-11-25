@@ -3,7 +3,7 @@ import { drawKongi } from './lib/kongi';
 import { el, esc, muteButton, type GameDef } from './lib/shell';
 import { icons } from './lib/icons';
 import { sfx } from './lib/audio';
-import { MAX_PILLOWS, allDays, bestStreak, body, hasStamp, hat, history, levelOf, markStampsSeen, pillows, playerName, plays, setPlayerName, stampCount, streak, xp } from './lib/progress';
+import { MAX_PILLOWS, allDays, bestStreak, body, hasStamp, hat, history, isNewStamp, levelOf, markStampsSeen, pillows, playerName, plays, setPlayerName, stampCount, streak, xp } from './lib/progress';
 import { STAMPS, stampCanvas } from './lib/stamps';
 import { getBest } from './lib/store';
 import { today, RUN_LENGTH } from './modes';
@@ -113,8 +113,8 @@ export function renderProfile(app: HTMLElement, games: GameDef[], exit: () => vo
       <h3>last 4 weeks of dailies</h3>
       <div class="cal">${cal}</div>
       <h3>stamp book <span>· ${stampCount()} of ${STAMPS.length}</span></h3>
-      <div class="stamps">${STAMPS.map((s, i) => `<button class="stamp${hasStamp(s.id) ? '' : ' locked'}" data-i="${i}"><span class="st-art"></span><em>${hasStamp(s.id) ? s.name : '???'}</em></button>`).join('')}</div>
       <p class="stamp-info" aria-live="polite">tap a stamp to see how to get it.</p>
+      <div class="stamps">${STAMPS.map((s, i) => `<button class="stamp${hasStamp(s.id) ? '' : ' locked'}${isNewStamp(s.id) ? ' fresh' : ''}" data-i="${i}"><span class="st-art"></span><em>${hasStamp(s.id) ? s.name : '???'}</em></button>`).join('')}</div>
       <h3>every game <span>· average of your last 20</span></h3>
       <ul class="per-game">${rows}</ul>
     </div>`);
@@ -136,7 +136,21 @@ export function renderProfile(app: HTMLElement, games: GameDef[], exit: () => vo
   stages.push(r);
   // stamps are static drawings: drawn once, no animation loop
   const info = root.querySelector<HTMLElement>('.stamp-info')!;
-  markStampsSeen();
+  const grid = root.querySelector<HTMLElement>('.stamps')!;
+  // new stamps count as seen once the grid has actually been on screen
+  const seenObs = new IntersectionObserver((es) => {
+    if (es.some((e) => e.isIntersecting)) {
+      markStampsSeen();
+      seenObs.disconnect();
+    }
+  }, { threshold: 0.3 });
+  seenObs.observe(grid);
+  let toStamps = false;
+  try {
+    toStamps = sessionStorage.getItem('daechung:to-stamps') === '1';
+    sessionStorage.removeItem('daechung:to-stamps');
+  } catch { /* ignore */ }
+  if (toStamps) requestAnimationFrame(() => info.scrollIntoView({ block: 'start', behavior: 'smooth' }));
   void document.fonts.ready.then(() => {
     if (!root.isConnected) return;
     root.querySelectorAll<HTMLElement>('.stamp').forEach((b) => {
@@ -147,6 +161,9 @@ export function renderProfile(app: HTMLElement, games: GameDef[], exit: () => vo
         sfx.click();
         info.innerHTML = got ? `<b>${s.name}</b>: ${s.hint}. got it!` : `<b>locked</b>: ${s.hint}.`;
         root.querySelectorAll('.stamp').forEach((x) => x.classList.toggle('on', x === b));
+        // the line sits above the grid: make sure it's on screen
+        const r = info.getBoundingClientRect();
+        if (r.top < 0) info.scrollIntoView({ block: 'start', behavior: 'smooth' });
       });
     });
   });
@@ -158,6 +175,7 @@ export function renderProfile(app: HTMLElement, games: GameDef[], exit: () => vo
   root.querySelector('.hat-btn')!.addEventListener('click', openCloset);
 
   return () => {
+    seenObs.disconnect();
     stages.forEach((s) => s.destroy());
     document.querySelector<HTMLButtonElement>('.closet .done')?.click();
     root.remove();

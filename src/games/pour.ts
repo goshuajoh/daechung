@@ -74,6 +74,7 @@ export const pour: GameDef = {
   id: 'pour',
   name: 'Fill It Up',
   kr: '붓기',
+  short: 'Fill',
   blurb: 'Hold to pour. Let go when the glass is exactly 64% full.',
   howto: '<b>Press and hold</b> to pour. Let go when the glass is filled to the % I ask for. One pour only!',
   verb: 'pour it exactly!',

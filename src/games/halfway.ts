@@ -99,6 +99,7 @@ export const halfway: GameDef = {
   id: 'halfway',
   name: 'Halfway',
   kr: '반',
+  short: 'Halfway',
   blurb: 'Tap the exact middle of a squiggly road. The wiggles lie.',
   howto: 'Tap the spot that is <b>exactly halfway</b> along the road, from start to end. Drag to adjust, then lock it in.',
   verb: 'find the halfway point!',

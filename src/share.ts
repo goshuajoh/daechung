@@ -61,7 +61,7 @@ export function drawShareCard(c: ShareCard): HTMLCanvasElement {
     const x = x0 + (i % cols) * (tw + gap), y = y0 + Math.floor(i / cols) * (th + gap);
     pen.rrect(x, y, tw, th, 26, { fill: r.game.color, width: 5, seed: 10 + i, shift: [8, 8] });
     pen.text(String(r.acc + r.bonus), x + tw / 2, y + 74, { size: 66 });
-    pen.text(r.game.kr, x + tw / 2, y + 134, { size: 32, font: 'gaegu' });
+    pen.text(r.game.short, x + tw / 2, y + 134, { size: 30, font: 'gaegu' });
     if (r.acc >= 90) pen.star(x + tw - 22, y + 22, 20, { fill: WHITE, width: 4, seed: 30 + i }, 0.2);
   });
 

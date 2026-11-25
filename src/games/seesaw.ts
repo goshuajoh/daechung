@@ -1,7 +1,7 @@
 import type { GameDef, Shell } from '../lib/shell';
 import type { Pen, Pt } from '../lib/pen';
 import { sfx } from '../lib/audio';
-import { BUTTER, LEAF } from '../lib/palette';
+import { BUTTER, LEAF, WHITE } from '../lib/palette';
 import { BODIES } from '../lib/hats';
 import { drawKongi, type Mood } from '../lib/kongi';
 import { clamp, easeInOut, easeOutBack, lerp, rand, random } from '../lib/rng';
@@ -89,6 +89,17 @@ function drawSeesaw(pen: Pen, L: Layout, rs: Rider[], p: number, ang: number, t:
   ctx.restore();
 }
 
+/** Wooden blocks holding the plank level until you lock in; k: 0 = in place, 1 = pulled away. */
+function drawBlocks(pen: Pen, L: Layout, k: number) {
+  if (k >= 1) return;
+  const top = L.y + 7, hgt = L.ground - top;
+  for (const dir of [-1, 1]) {
+    const x = (dir < 0 ? L.x0 + 20 : L.x1 - 20) + dir * k * 50;
+    pen.rrect(x - 11, top, 22, hgt, 3, { fill: '#c98f55', width: 2.5, seed: 1720 + dir, alpha: 1 - k });
+    pen.line(x - 6, top + hgt * 0.4, x + 6, top + hgt * 0.4, { width: 1.8, seed: 1724 + dir, alpha: 0.5 * (1 - k) });
+  }
+}
+
 /** How far the plank tips for a pivot at p (radians, + = right side down). */
 function tiltFor(rs: Rider[], p: number) {
   const torque = rs.reduce((a, r) => a + r.m * (r.x - p), 0) / rs.reduce((a, r) => a + r.m, 0);
@@ -104,6 +115,7 @@ export const seesaw: GameDef = {
   id: 'seesaw',
   name: 'Seesaw',
   kr: '시소',
+  short: 'Seesaw',
   blurb: 'Slide the pivot so the Kongis balance. Bigger Kongis are heavier than they look.',
   howto: 'Slide the <b>triangle</b> under the plank to the spot where the seesaw would <b>balance</b>, then lock it in. A Kongi twice as wide weighs <b>four times</b> as much.',
   verb: 'balance the seesaw!',
@@ -157,16 +169,18 @@ export const seesaw: GameDef = {
 
     g.say(
       g.tutorial
-        ? 'drag the <b>triangle</b>. in practice the plank tips as you go: make it <b>level</b>!'
-        : 'drag the <b>triangle</b> to where the seesaw would balance. bigger = heavier!',
+        ? 'drag the <b>triangle</b>. in this free try the plank tips as you go: make it <b>level</b>!'
+        : 'drag the <b>triangle</b> to where it would balance (bigger = heavier). <b>balance!</b> pulls the blocks away.',
       'focus',
     );
     stage.draw = (pen, w, h, t) => {
       const L = layout(w, h, rs.length);
       drawPrompt(pen, w, 'balance?', 'where would it');
       let ang = 0;
-      if (doneAt) ang = finalAng * easeOutBack(clamp((t - doneAt) / 0.7, 0, 1));
+      // blocks out first, then it tips
+      if (doneAt) ang = finalAng * easeOutBack(clamp((t - doneAt - 0.3) / 0.7, 0, 1));
       else if (g.tutorial && moved) ang = tiltFor(rs, p) * 0.8;
+      if (!g.tutorial) drawBlocks(pen, L, doneAt ? clamp((t - doneAt) / 0.3, 0, 1) : 0);
       const level = Math.abs(finalAng) < 0.02;
       drawSeesaw(pen, L, rs, p, ang, t, (i) => {
         if (!doneAt) return 'idle';
@@ -180,11 +194,13 @@ export const seesaw: GameDef = {
       }
       if (doneAt) {
         // where it would have balanced
-        const pop = easeOutBack(clamp((t - doneAt - 0.5) / 0.4, 0, 1));
+        const pop = easeOutBack(clamp((t - doneAt - 0.8) / 0.4, 0, 1));
         if (pop > 0 && !level) {
           const bx = lerp(L.x0, L.x1, answer);
+          const right = bx > w * 0.7;
           pen.line(bx, L.ground + 2, bx, L.ground + 14, { width: 3, seed: 1710, stroke: LEAF });
           pen.star(bx, L.ground + 14, 8 * pop + 1, { fill: LEAF, width: 2, seed: 1711 }, 0);
+          pen.text('balances here', bx + (right ? -14 : 14), L.ground + 15, { size: Math.max(1, 15 * pop), font: 'gaegu', align: right ? 'right' : 'left', outline: WHITE });
         }
       }
     };
@@ -238,19 +254,20 @@ export const seesaw: GameDef = {
     }
     const e = Math.abs(p - answer);
     finalAng = e < 0.012 ? 0 : tiltFor(rs, p);
-    if (Math.abs(finalAng) < 0.05 && e >= 0.012) finalAng = Math.sign(finalAng || 1) * 0.05; // always visibly tip when off
+    if (Math.abs(finalAng) < 0.09 && e >= 0.012) finalAng = Math.sign(finalAng || 1) * 0.09; // always visibly tip when off
     doneAt = stage.time;
     stage.boost(1400);
     if (finalAng === 0) sfx.ding();
-    else window.setTimeout(() => sfx.thud(), 380);
+    else window.setTimeout(() => sfx.thud(), 680);
     g.setMood(finalAng === 0 ? 'cheer' : 'wow');
     await g.wait(1500);
     if (timedOut && !moved) return { score: 0, detail: "time's up! the triangle never moved" };
-    const score = 100 * Math.pow(Math.max(0, 1 - e / 0.12), 1.2);
+    // shown level = full marks; from there it falls off smoothly
+    const score = e < 0.012 ? 100 : 100 * Math.pow(Math.max(0, 1 - (e - 0.012) / 0.108), 1.2);
     const amount = e < 0.03 ? 'just a touch' : e < 0.07 ? 'a bit' : 'way';
     return {
       score,
-      detail: e < 0.012 ? '<b>perfectly balanced!</b>' : `<b>${amount} too far ${p < answer ? 'left' : 'right'}</b> · the ${p < answer ? 'right' : 'left'} side was heavier`,
+      detail: e < 0.012 ? '<b>perfectly balanced!</b>' : `<b>${amount} too far ${p < answer ? 'left' : 'right'}</b> · the ${p < answer ? 'right' : 'left'} end went down. it balances at the star`,
     };
   },
 };

@@ -73,6 +73,7 @@ export const beat: GameDef = {
   id: 'beat',
   name: 'Keep the Beat',
   kr: '박자',
+  short: 'Beat',
   blurb: 'The music stops. Your inner metronome keeps going… right?',
   howto: "I'll drum a beat. When I <b>stop</b>, you keep it going — tap the stage (or any key). Turn your sound on!",
   color: PINK,

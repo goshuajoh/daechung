@@ -74,6 +74,7 @@ export const bigger: GameDef = {
   id: 'bigger',
   name: 'Bigger?',
   kr: '더 큰 거',
+  short: 'Bigger',
   blurb: 'Six quick ones: which shape has more area? Stars are liars.',
   howto: 'Two shapes pop up. <b>Tap the one with more area</b> (more paint to colour it in). Six in a row, quick!',
   verb: 'tap the bigger one!',

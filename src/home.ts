@@ -182,6 +182,12 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
   const openCloset = () => closet(() => (mood = 'cheer', moodUntil = kongi.time + 1.6));
   root.querySelector('.lvl')!.addEventListener('click', () => {
     sfx.pop();
+    // "new stamp!": open the profile straight at the stamp book
+    if (newStamps()) {
+      try {
+        sessionStorage.setItem('daechung:to-stamps', '1');
+      } catch { /* ignore */ }
+    }
     go('me');
   });
   root.querySelector('.challenge-ribbon')?.addEventListener('click', () => {

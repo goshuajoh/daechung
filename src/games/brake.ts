@@ -61,6 +61,7 @@ export const brake: GameDef = {
   id: 'brake',
   name: 'Brake!',
   kr: '주차',
+  short: 'Brake',
   blurb: 'Tap to brake. The car slides — stop the bumper right on the line.',
   howto: "The car drives toward the line. <b>Tap once to brake</b> — it slides a bit, so brake early enough to stop right on the line!",
   verb: 'stop on the line!',
