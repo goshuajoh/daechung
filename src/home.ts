@@ -8,8 +8,8 @@ import { canPrompt, isIOS, onInstallChange, promptInstall, standalone } from './
 import { icons } from './lib/icons';
 import { esc, muteButton, type GameDef } from './lib/shell';
 import { sfx } from './lib/audio';
-import { RUN_LENGTH, nextDailyIn, today } from './modes';
-import { BERRY, BUTTER, INK, LILAC, PINK, WHITE } from './lib/palette';
+import { RUN_LENGTH, drawHearts, nextDailyIn, today } from './modes';
+import { BERRY, BUTTER, INK, LILAC, MINT, PINK, WHITE } from './lib/palette';
 import type { Pen } from './lib/pen';
 
 /* ——— little illustrations for the mode buttons ——— */
@@ -66,6 +66,7 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
     .map((n) => `<i class="${n === day.n ? 'today ' : ''}${n < 1 ? 'pre' : dayScore(n) != null ? 'done' : ''}"></i>`)
     .join('');
   const runBest = getBest('run');
+  const survivalBest = getBest('survival');
   const tilts = [-1.4, 1.1, -0.7, 1.6, -1.2, 0.9, -1.7, 1.3, -0.9, 1.5];
   const root = document.createElement('section');
   root.className = 'screen home';
@@ -117,6 +118,14 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
           <b>Party</b>
           <p>Pass the phone. Same games, who's closest?</p>
           <span class="best">2–8 players</span>
+        </div>
+      </button>
+      <button class="mode m-survival" style="--c:${MINT};--tilt:0.7deg" data-go="survival">
+        <div class="mode-art"></div>
+        <div class="mode-text">
+          <b>Survival</b>
+          <p>3 hearts. Under 50 breaks one. How far can you go?</p>
+          <span class="best">${survivalBest == null ? 'no runs yet' : `best <b>${survivalBest}</b> rounds`}</span>
         </div>
       </button>
     </div>
@@ -210,6 +219,7 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
   mount(arts[0], 'art-canvas', (pen, w, h, t) => drawCalendar(pen, w, h, t, day.n), 7);
   mount(arts[1], 'art-canvas', (pen, w, h, t) => drawStopwatch(pen, w, h, t), 8);
   mount(arts[2], 'art-canvas', (pen, w, h, t) => drawTrio(pen, w, h, t));
+  mount(arts[3], 'art-canvas', (pen, w, h, t) => drawHearts(pen, w, h, t), 8);
   root.querySelectorAll<HTMLButtonElement>('.mode').forEach((b) =>
     b.addEventListener('click', () => {
       sfx.pop();

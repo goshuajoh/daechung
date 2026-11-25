@@ -132,6 +132,14 @@ const STAMPS_: Stamp[] = [
     icon: (p, x, y, r, ink) => p.blob([[x, y + r * 0.82], [x - r * 0.85, y - r * 0.05], [x - r * 0.6, y - r * 0.72], [x - r * 0.05, y - r * 0.55], [x, y - r * 0.4], [x + r * 0.05, y - r * 0.55], [x + r * 0.6, y - r * 0.72], [x + r * 0.85, y - r * 0.05]], { stroke: ink, fill: BERRY, width: 2.6, seed: 55, rough: 0.5 }),
   },
   {
+    id: 'survivor', name: 'survivor', hint: 'last 10 rounds in Survival', ink: BERRY, bg: MINT,
+    icon: (p, x, y, r, ink) => {
+      p.blob([[x, y + r * 0.85], [x - r * 0.85, y], [x - r * 0.85, y - r * 0.5], [x - r * 0.45, y - r * 0.85], [x, y - r * 0.45], [x + r * 0.45, y - r * 0.85], [x + r * 0.85, y - r * 0.5], [x + r * 0.85, y]], { stroke: ink, fill: PINK, width: 2.6, seed: 57, rough: 0.5 });
+      // a little plaster across it
+      p.rrect(x - r * 0.55, y - r * 0.18, r * 1.1, r * 0.36, 4, { stroke: ink, fill: BUTTER, width: 2, seed: 58, shift: [0, 0] });
+    },
+  },
+  {
     id: 'lv10', name: 'level 10', hint: 'reach level 10', ink: '#8a68c0', bg: LILAC,
     icon: (p, x, y, r, ink) => {
       p.circle(x, y, r * 0.8, { stroke: ink, fill: BUTTER, width: 2.6, seed: 56 });

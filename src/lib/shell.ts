@@ -66,6 +66,8 @@ export interface FrameOpts {
   player?: { name: string; body: string };
   /** A friend's run to compare against (challenge links). */
   rival?: { name: string; scores: number[] };
+  /** Survival: hearts in the header instead of a step count. */
+  lives?: number;
 }
 
 export const isAbort = (e: unknown) => e instanceof DOMException && e.name === 'AbortError';
@@ -190,7 +192,12 @@ export class Shell {
       if (this.running && (this.timed || this.total > 0)) this.confirmLeave();
       else this.exit();
     });
-    if (opts.steps <= 6) for (let i = 0; i < opts.steps; i++) this.progress.appendChild(el('i'));
+    if (opts.lives) {
+      this.progress.classList.add('lives');
+      this.progress.innerHTML = `<span class="rnd"></span>${'<b class="heart"></b>'.repeat(opts.lives)}`;
+      this.progress.setAttribute('aria-hidden', 'false');
+      this.setLives(opts.lives);
+    } else if (opts.steps <= 6) for (let i = 0; i < opts.steps; i++) this.progress.appendChild(el('i'));
     else this.progress.classList.add('count');
     this.setHeader(opts.title, opts.kr, opts.color);
 
@@ -344,7 +351,22 @@ export class Shell {
     this.totalEl.textContent = '0';
   }
 
+  /** Survival hearts; `lost` plays the heart-break on the one that just went. */
+  setLives(n: number, lost = false) {
+    const hearts = [...this.progress.querySelectorAll<HTMLElement>('.heart')];
+    hearts.forEach((h, k) => {
+      const gone = k >= n;
+      if (gone && lost && k === n) h.classList.add('break');
+      h.classList.toggle('gone', gone);
+    });
+    this.progress.setAttribute('aria-label', `${n} heart${n === 1 ? '' : 's'} left`);
+  }
+
   setProgress(i: number) {
+    if (this.opts.lives) {
+      if (i < this.opts.steps) this.progress.querySelector('.rnd')!.textContent = `round ${i + 1}`;
+      return;
+    }
     if (this.progress.classList.contains('count')) {
       this.progress.textContent = i < this.opts.steps ? `${i + 1}/${this.opts.steps}` : `${this.opts.steps}/${this.opts.steps}`;
       return;
@@ -625,7 +647,7 @@ export class Shell {
     this.clearActions();
     this.stage.clear();
     const full = t === 'new';
-    const counter = i == null ? '' : `<small>${i + 1} / ${this.opts.steps}</small>`;
+    const counter = i == null ? '' : `<small>${this.opts.lives ? `round ${i + 1}` : `${i + 1} / ${this.opts.steps}`}</small>`;
     const badge = full && !practised ? '<em>new game!</em>' : '';
     // explain the countdown once, on the first timed game someone ever plays
     const clockNote = this.timed && !def.untimed && !practised && firstTime('timer');
@@ -667,7 +689,7 @@ export class Shell {
     this.overlay.innerHTML = '';
     this.clearActions();
     this.fadedThumb(def);
-    const counter = i == null ? '' : `<small>${i + 1} / ${this.opts.steps}</small>`;
+    const counter = i == null ? '' : `<small>${this.opts.lives ? `round ${i + 1}` : `${i + 1} / ${this.opts.steps}`}</small>`;
     const card = el('div', 'title-card', `${counter}<b>${def.name}</b><span>${def.verb}</span>`);
     card.style.setProperty('--tc', def.color);
     card.style.setProperty('--rot', `${((i ?? 0) % 2 ? 1 : -1) * rand(1.5, 3.5)}deg`);
@@ -753,7 +775,7 @@ export class Shell {
   }
 
   /** Play a list of mini-games. Returns null if the player left. */
-  async playSteps(steps: Step[], seed: number | null): Promise<StepResult[] | null> {
+  async playSteps(steps: Step[], seed: number | null, after?: (r: StepResult, i: number) => boolean | void): Promise<StepResult[] | null> {
     const results: StepResult[] = [];
     this.combo = 0;
     this.running = true;
@@ -808,7 +830,10 @@ export class Shell {
         const acc = Math.round(clamp(res.score, 0, 100));
         if (!this.opts.player) recordScore(game.id, acc);
         const bonus = !this.timed ? 0 : game.untimed ? Math.round((10 * acc) / 100) : Math.round((20 * (this.timeLeft ?? 0) * acc) / 100);
-        results.push({ game, acc, bonus, detail: res.detail });
+        const result: StepResult = { game, acc, bonus, detail: res.detail };
+        results.push(result);
+        // survival: the caller can end the run after this round (out of hearts)
+        const stop = after?.(result, i) === true;
         this.total += acc + bonus;
         this.bumpTotal(this.total);
         // stamps first: leaving during the sticker shouldn't lose a 100
@@ -817,8 +842,9 @@ export class Shell {
           if (bonus >= 18) earn('speedy');
           if (acc >= 70 && this.combo + 1 >= 4) earn('combo'); // the sticker counts this round into the combo
         }
-        await this.sticker(acc, bonus, res.detail, i === steps.length - 1, i);
+        await this.sticker(acc, bonus, res.detail, stop || i === steps.length - 1, i);
         await this.gate();
+        if (stop) break;
       }
       this.setProgress(steps.length);
       return results;

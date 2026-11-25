@@ -14,6 +14,8 @@ export interface ShareCard {
   body?: string;
   name: string;
   rival?: { name: string; total: number } | null;
+  /** Shown under the big number instead of "/ max" (survival: "rounds"). */
+  unit?: string;
 }
 
 /** A 4:5 result card for group chats, drawn with the same wobbly pen as the game. */
@@ -43,7 +45,7 @@ export function drawShareCard(c: ShareCard): HTMLCanvasElement {
   // Kongi + score
   drawKongi(pen, 290, 560, 300, 'cheer', 0.25, { hat: c.hat, body: c.body });
   pen.text(String(c.total), 760, 390, { size: 190 });
-  pen.text(`/ ${c.max}`, 760, 500, { size: 50, alpha: 0.5 });
+  pen.text(c.unit ?? `/ ${c.max}`, 760, 500, { size: 50, alpha: 0.5 });
   if (c.name) pen.text(`by ${c.name}`, W - 130, c.streak > 1 ? 262 : 214, { size: 34, font: 'gaegu', alpha: 0.7, align: 'right' });
   // rank on its own row, highlighter behind it
   const rk = `“${c.rank}”`;
@@ -57,7 +59,8 @@ export function drawShareCard(c: ShareCard): HTMLCanvasElement {
   // tiles
   const cols = 5, tw = 160, th = 170, gap = 22;
   const x0 = W / 2 - (cols * tw + (cols - 1) * gap) / 2, y0 = 740;
-  c.results.forEach((r, i) => {
+  // at most two rows: a long survival run shows its last ten rounds
+  c.results.slice(-10).forEach((r, i) => {
     const x = x0 + (i % cols) * (tw + gap), y = y0 + Math.floor(i / cols) * (th + gap);
     pen.rrect(x, y, tw, th, 26, { fill: r.game.color, width: 5, seed: 10 + i, shift: [8, 8] });
     pen.text(String(r.acc + r.bonus), x + tw / 2, y + 74, { size: 66 });

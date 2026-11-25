@@ -1,10 +1,11 @@
 import { Shell, el, esc, type GameDef, type Step, type StepResult } from './lib/shell';
 import { Stage } from './lib/stage';
+import type { Pen, Pt } from './lib/pen';
 import { drawKongi } from './lib/kongi';
 import { getBest, saveScore } from './lib/store';
 import { icons } from './lib/icons';
 import { seedRandom, shuffle } from './lib/rng';
-import { BUTTER, LILAC, WHITE } from './lib/palette';
+import { BERRY, BUTTER, LILAC, MINT, PINK, WHITE } from './lib/palette';
 import { sfx } from './lib/audio';
 import { type LevelInfo, addXp, body, firstTime, hat, levelOf, topScore, playerName, plays, recordDaily, setBody, setHat, setPlayerName, xp } from './lib/progress';
 import { bodyForLevel, hatForLevel, hatForStreak } from './lib/hats';
@@ -409,6 +410,153 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
         else if (res === 'failed' || res === 'saved') {
           try {
             await showLink(shell, link);
+          } catch {
+            return;
+          }
+        }
+      } else if (i === 1) return void play();
+      else return exit();
+    }
+  };
+  void play();
+  return () => {
+    holdStamps(false);
+    g?.destroy();
+  };
+}
+
+/* ——— survival: rounds until you run out of hearts ——— */
+
+export const LIVES = 3;
+/** A round scoring under this costs a heart. */
+export const SURVIVE_MIN = 50;
+const SURVIVE_RANKS: [number, string][] = [
+  [20, 'Unbreakable'],
+  [15, 'Eyeball Athlete'],
+  [10, 'Tough Cookie'],
+  [6, 'Hanging In'],
+  [3, 'Just Warming Up'],
+  [0, 'Blinked Early'],
+];
+const surviveRank = (rounds: number) => SURVIVE_RANKS.find(([min]) => rounds >= min)![1];
+
+function heart(pen: Pen, x: number, y: number, r: number, fill: string, seed: number) {
+  pen.blob(
+    [[0, 0.95], [-0.85, 0.15], [-0.95, -0.45], [-0.5, -0.85], [0, -0.45], [0.5, -0.85], [0.95, -0.45], [0.85, 0.15]].map(([a, b]) => [x + a * r, y + b * r] as Pt),
+    { fill, width: 3, seed },
+  );
+}
+
+/** Home tile art: three hearts, one wobbling. */
+export function drawHearts(pen: Pen, w: number, h: number, t: number) {
+  const r = Math.min(w / 8, h / 3.2);
+  for (let k = 0; k < 3; k++) {
+    const wob = k === 2 ? Math.sin(t * 5) * 0.12 : 0;
+    pen.ctx.save();
+    pen.ctx.translate(w / 2 + (k - 1) * r * 2.3, h / 2 + (k === 1 ? -r * 0.25 : 0));
+    pen.ctx.rotate(wob);
+    heart(pen, 0, 0, r, k === 2 ? PINK : BERRY, 3100 + k);
+    pen.ctx.restore();
+  }
+}
+
+export function startSurvival(app: HTMLElement, games: GameDef[], exit: () => void): () => void {
+  let g: Shell | null = null;
+  const play = async () => {
+    g?.destroy();
+    // every game once before any repeats (and never the same one twice in a row); harder every 3 rounds
+    seedRandom(null);
+    const order: GameDef[] = [];
+    while (order.length < 60) {
+      const batch = shuffle([...games]);
+      if (order.length && batch[0] === order[order.length - 1]) batch.push(batch.shift()!);
+      order.push(...batch);
+    }
+    const steps: Step[] = order.slice(0, 60).map((game, i) => ({ game, level: Math.min(4, Math.floor(i / 3)) }));
+    g = new Shell(app, { title: 'Survival', kr: '버티기', color: MINT, steps: steps.length, timed: true, lives: LIVES }, exit);
+    const shell = g;
+    shell.setProgress(0);
+    const best = getBest('survival');
+    shell.stage.draw = (pen, w, h, t) => {
+      pen.text(`${LIVES} hearts`, w / 2, 52, { size: Math.min(40, w * 0.1) });
+      pen.text(`score under ${SURVIVE_MIN} and one breaks`, w / 2, 90, { size: 22, font: 'gaegu', alpha: 0.7 });
+      const r = Math.min(w / 9, 46);
+      for (let k = 0; k < LIVES; k++) {
+        const bob = Math.sin(t * 3 + k) * 4;
+        heart(pen, w / 2 + (k - 1) * r * 2.4, h * 0.48 + bob, r, BERRY, 3200 + k);
+      }
+      pen.text(best ? `your best: ${best} rounds` : 'how far can you go?', w / 2, h * 0.48 + r * 2.2, { size: 24, font: 'gaegu' });
+    };
+    shell.say(`you have <b>${LIVES} hearts</b>. score under <b>${SURVIVE_MIN}</b> on a round and you lose one. it gets harder as you go!`, 'happy');
+    try {
+      await shell.button("let's go!");
+    } catch {
+      return;
+    }
+    let lives = LIVES;
+    holdStamps(true);
+    const results = await shell.playSteps(steps, null, (r) => {
+      if (r.acc < SURVIVE_MIN) {
+        lives--;
+        shell.setLives(lives, true);
+        sfx.boop();
+      }
+      return lives <= 0;
+    });
+    if (!results) return void holdStamps(false);
+
+    const rounds = results.length;
+    const total = sum(results);
+    shell.setHeader('Survival', '버티기', MINT);
+    const isBest = saveScore('survival', rounds);
+    const bestNow = getBest('survival') ?? rounds;
+    const outOfGames = lives > 0;
+    const nines = results.filter((r) => r.acc >= 90).length;
+    const card = shell.card(`
+      <div class="final-label">survival</div>
+      <div class="final-total"><b>0</b><span> rounds</span></div>
+      <div class="final-rank">“${outOfGames ? 'Survived Everything' : surviveRank(rounds)}”</div>
+      <div class="final-best">${total} points${nines ? ` · ${nines} round${nines === 1 ? '' : 's'} of 90+` : ''}</div>
+      ${xpBar(levelPreview(), total)}
+      <div class="final-best">${isBest ? '<em>new best!</em>' : `best: ${bestNow} rounds`}</div>`);
+    shell.countUp(card.querySelector('.final-total b')!, rounds);
+    shell.confetti(Math.min(1, rounds / 15));
+    shell.setMood(rounds >= 10 ? 'cheer' : rounds >= 5 ? 'happy' : 'sad');
+    const comment = outOfGames
+      ? 'you played every round I had and never ran out of hearts. who ARE you?'
+      : isBest && rounds > 1
+        ? `a new record: <b>${rounds} rounds</b>!`
+        : rounds >= 10
+          ? 'tough cookie! the later rounds are no joke.'
+          : 'the hearts go fast. one more go?';
+    shell.say(comment);
+    if (rounds >= 10) earn('survivor');
+    try {
+      await awardXp(shell, card, total);
+    } catch {
+      return void holdStamps(false);
+    }
+    holdStamps(false);
+    shell.say(comment);
+    for (;;) {
+      let i: number;
+      try {
+        i = await shell.choose(['share', icons.again, icons.home], 0);
+      } catch {
+        return;
+      }
+      if (i === 0) {
+        const name = playerName();
+        const res = await shareResult(
+          { title: 'survival', total: rounds, max: 0, unit: rounds === 1 ? 'round' : 'rounds', rank: outOfGames ? 'Survived Everything' : surviveRank(rounds), results, streak: 0, hat: hat(), body: body(), name },
+          `대충 survival: I lasted ${rounds} round${rounds === 1 ? '' : 's'} “${surviveRank(rounds)}”. how far can you get?`,
+          `${location.origin}${location.pathname}#/survival`,
+        );
+        if (res === 'copied') shell.say('copied! paste it in the group chat.', 'happy');
+        else if (res === 'shared') shell.say('sent! now we wait…', 'cheer');
+        else if (res === 'failed' || res === 'saved') {
+          try {
+            await showLink(shell, `${location.origin}${location.pathname}#/survival`);
           } catch {
             return;
           }
