@@ -3,7 +3,8 @@ import { drawKongi } from './lib/kongi';
 import { el, esc, muteButton, type GameDef } from './lib/shell';
 import { icons } from './lib/icons';
 import { sfx } from './lib/audio';
-import { allDays, bestStreak, body, hat, history, levelOf, playerName, plays, setPlayerName, streak, xp } from './lib/progress';
+import { allDays, bestStreak, body, hasStamp, hat, history, levelOf, markStampsSeen, playerName, plays, setPlayerName, stampCount, streak, xp } from './lib/progress';
+import { STAMPS, stampCanvas } from './lib/stamps';
 import { getBest } from './lib/store';
 import { today, RUN_LENGTH } from './modes';
 import { closet } from './closet';
@@ -110,6 +111,9 @@ export function renderProfile(app: HTMLElement, games: GameDef[], exit: () => vo
       <div class="radar"></div>
       <h3>last 4 weeks of dailies</h3>
       <div class="cal">${cal}</div>
+      <h3>stamp book <span>· ${stampCount()} of ${STAMPS.length}</span></h3>
+      <div class="stamps">${STAMPS.map((s, i) => `<button class="stamp${hasStamp(s.id) ? '' : ' locked'}" data-i="${i}"><span class="st-art"></span><em>${hasStamp(s.id) ? s.name : '???'}</em></button>`).join('')}</div>
+      <p class="stamp-info" aria-live="polite">tap a stamp to see how to get it.</p>
       <h3>every game <span>· average of your last 20</span></h3>
       <ul class="per-game">${rows}</ul>
     </div>`);
@@ -129,6 +133,22 @@ export function renderProfile(app: HTMLElement, games: GameDef[], exit: () => vo
   const r = new Stage(root.querySelector<HTMLElement>('.radar')!, 'radar-canvas', { fps: 8 });
   r.draw = (pen, w, h, t) => drawRadar(pen, w, h, t, vals);
   stages.push(r);
+  // stamps are static drawings: drawn once, no animation loop
+  const info = root.querySelector<HTMLElement>('.stamp-info')!;
+  markStampsSeen();
+  void document.fonts.ready.then(() => {
+    if (!root.isConnected) return;
+    root.querySelectorAll<HTMLElement>('.stamp').forEach((b) => {
+      const s = STAMPS[+b.dataset.i!];
+      const got = hasStamp(s.id);
+      b.querySelector('.st-art')!.appendChild(stampCanvas(got ? s : null, 62, got ? (((+b.dataset.i! * 37) % 9) - 4) * 0.035 : 0));
+      b.addEventListener('click', () => {
+        sfx.click();
+        info.innerHTML = got ? `<b>${s.name}</b>: ${s.hint}. got it!` : `<b>locked</b>: ${s.hint}.`;
+        root.querySelectorAll('.stamp').forEach((x) => x.classList.toggle('on', x === b));
+      });
+    });
+  });
   const openCloset = () => {
     sfx.pop();
     closet();

@@ -1,7 +1,7 @@
 import { Stage } from './lib/stage';
 import { drawKongi, type Mood } from './lib/kongi';
 import { getBest } from './lib/store';
-import { body, dayScore, firstTime, forgetTutorials, hat, levelOf, streak, xp } from './lib/progress';
+import { body, dayScore, firstTime, forgetTutorials, hat, levelOf, newStamps, streak, xp } from './lib/progress';
 import { friends, getPending } from './challenge';
 import { closet } from './closet';
 import { canPrompt, isIOS, onInstallChange, promptInstall, standalone } from './install';
@@ -77,7 +77,7 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
         <p class="roman"><b>daechung</b> · <i>adv.</i> roughly, more or less, by eye</p>
         <p class="tag">${games.length} tiny games for people who eyeball everything.</p>
         <div class="me">
-          <button class="lvl" aria-label="level ${lv.level}, open your profile"><b>Lv ${lv.level}</b><i><u style="width:${(lv.into / lv.need) * 100}%"></u></i><span>${lv.into}/${lv.need} xp</span></button>
+          <button class="lvl${newStamps() ? ' has-new' : ''}" aria-label="level ${lv.level}, open your profile${newStamps() ? ' (new stamps!)' : ''}"><b>Lv ${lv.level}</b><i><u style="width:${(lv.into / lv.need) * 100}%"></u></i><span>${lv.into}/${lv.need} xp</span></button>
           <span class="streak ${streakNow ? '' : 'cold'}">${icons.flame}<b>${streakNow ? `${streakNow}-day streak` : 'start a streak!'}</b></span>
         </div>
       </div>

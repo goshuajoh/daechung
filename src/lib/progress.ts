@@ -20,9 +20,13 @@ interface Progress {
   name: string;
   /** one-time hints already shown */
   hints: Record<string, 1>;
+  /** stamp id → when it was earned */
+  stamps: Record<string, number>;
+  /** how many stamps the stamp book has shown (for the "new!" dot) */
+  seen: number;
 }
 
-const fresh = (): Progress => ({ plays: {}, hist: {}, xp: 0, hat: 'none', body: 'white', streak: { last: 0, count: 0, best: 0 }, days: {}, name: '', hints: {} });
+const fresh = (): Progress => ({ plays: {}, hist: {}, xp: 0, hat: 'none', body: 'white', streak: { last: 0, count: 0, best: 0 }, days: {}, name: '', hints: {}, stamps: {}, seen: 0 });
 
 let cache: Progress | null = null;
 
@@ -163,6 +167,8 @@ export function recordDaily(n: number, score: number) {
   const p = load();
   const s = p.streak;
   const firstToday = s.last !== n;
+  // played before, then skipped at least two days
+  const back = firstToday && s.last > 0 && n - s.last >= 3;
   if (firstToday) {
     s.count = s.last === n - 1 ? s.count + 1 : 1;
     s.last = n;
@@ -170,7 +176,7 @@ export function recordDaily(n: number, score: number) {
   }
   p.days[n] = Math.max(p.days[n] ?? 0, score);
   save();
-  return { streak: s.count, best: s.best, firstToday };
+  return { streak: s.count, best: s.best, firstToday, back };
 }
 
 /** Current streak (0 if they missed yesterday and haven't played today). */
@@ -201,4 +207,29 @@ export function firstTime(hint: string) {
   p.hints[hint] = 1;
   save();
   return true;
+}
+
+/* ——— stamps ——— */
+
+export function hasStamp(id: string) {
+  return !!load().stamps[id];
+}
+
+export function addStamp(id: string) {
+  load().stamps[id] = Date.now();
+  save();
+}
+
+export function stampCount() {
+  return Object.keys(load().stamps).length;
+}
+
+/** Stamps earned since the stamp book was last opened. */
+export function newStamps() {
+  return Math.max(0, stampCount() - (load().seen ?? 0));
+}
+
+export function markStampsSeen() {
+  load().seen = stampCount();
+  save();
 }

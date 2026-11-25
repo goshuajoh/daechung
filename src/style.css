@@ -737,6 +737,9 @@ button { font: inherit; color: inherit; }
 }
 .lvl::after { content: 'me ›'; font-family: var(--display); font-size: 15px; background: var(--white); border: 2.2px solid var(--ink); border-radius: 10px 12px 9px 11px; padding: 1px 8px; }
 .me-stats .lvl::after { display: none; }
+.lvl.has-new::after { content: 'new stamp! ›'; background: #ffe08a; animation: wiggle-in 1.6s ease-in-out 1s 3; }
+@keyframes wiggle-in { 0%, 80%, 100% { transform: rotate(0); } 85% { transform: rotate(-6deg); } 90% { transform: rotate(5deg); } 95% { transform: rotate(-3deg); } }
+@media (prefers-reduced-motion: reduce) { .lvl.has-new::after { animation: none; } }
 .lvl b { font-family: var(--display); font-weight: 400; font-size: 17px; background: #cdb7ec; border: 2.4px solid var(--ink); border-radius: 10px 12px 9px 11px; padding: 0 8px; transform: rotate(-3deg); }
 .lvl i { display: block; width: 92px; height: 12px; border: 2.4px solid var(--ink); border-radius: 8px 9px 7px 8px; background: var(--white); overflow: hidden; }
 .lvl u { display: block; height: 100%; background: repeating-linear-gradient(-45deg, #cdb7ec 0 6px, #b9a0e3 6px 12px); }
@@ -777,6 +780,22 @@ button { font: inherit; color: inherit; }
 }
 .closet > b { font-family: var(--display); font-weight: 400; font-size: 28px; }
 .closet .done { position: sticky; bottom: 0; width: 100%; justify-content: center; box-shadow: 0 0 0 14px var(--white); }
+.stamp-toast {
+  position: fixed; z-index: 60; left: 50%; top: calc(10px + env(safe-area-inset-top));
+  width: min(360px, calc(100vw - 24px)); transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 8px; cursor: pointer;
+  background: var(--white); border: 3px solid var(--ink); border-radius: 18px 22px 16px 20px;
+  box-shadow: 5px 5px 0 var(--peach); animation: stamp-in .5s cubic-bezier(.2, 1.6, .4, 1) both;
+}
+.stamp-toast.out { animation: stamp-out .3s ease-in both; }
+.stamp-toast .st-art { flex: none; width: 56px; height: 56px; animation: stamp-thunk .45s .15s cubic-bezier(.3, 1.8, .5, 1) both; }
+.stamp-toast em { display: block; font-style: normal; font-size: 16px; color: var(--berry); line-height: 1; }
+.stamp-toast b { display: block; font-family: var(--display); font-weight: 400; font-size: 22px; line-height: 1.1; }
+.stamp-toast span { display: block; font-size: 16px; line-height: 1.1; opacity: .7; }
+@keyframes stamp-in { from { transform: translate(-50%, -140%); } }
+@keyframes stamp-out { to { transform: translate(-50%, -140%); opacity: 0; } }
+@keyframes stamp-thunk { from { transform: scale(1.9) rotate(-18deg); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .stamp-toast, .stamp-toast .st-art, .stamp-toast.out { animation-duration: .01s; } }
 .closet-msg { min-height: 22px; font-size: 17px; color: var(--berry); margin: -6px 0 6px; }
 .closet p { margin: 2px 0 12px; font-size: 18px; }
 .closet p b { font-family: var(--display); font-weight: 400; }
@@ -841,6 +860,14 @@ button { font: inherit; color: inherit; }
 .cal i.today { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4.5px var(--ink); }
 .cal i span { font-size: 13px; opacity: .55; }
 .cal i.future { opacity: .45; }
+.stamps { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 6px 4px; }
+.stamp { display: flex; flex-direction: column; align-items: center; gap: 0; padding: 4px 0 6px; min-width: 0; background: none; border: 0; border-radius: 14px; font: inherit; color: inherit; cursor: pointer; }
+.stamp .st-art { width: 62px; height: 62px; display: block; }
+.stamp em { font-style: normal; font-family: var(--display); font-size: 14px; line-height: 1.1; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px; }
+.stamp.locked em { opacity: .4; }
+.stamp.on { background: rgba(255, 224, 138, .5); }
+.stamp-info { min-height: 26px; margin: 6px 2px 4px; font-size: 18px; }
+.stamp-info b { font-family: var(--display); font-weight: 400; }
 .per-game { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .per-game li {
   display: grid; grid-template-columns: 18px minmax(0, 1fr) 90px 34px; grid-template-rows: auto auto;

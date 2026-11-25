@@ -6,11 +6,12 @@ import { icons } from './lib/icons';
 import { seedRandom, shuffle } from './lib/rng';
 import { BUTTER, LILAC, WHITE } from './lib/palette';
 import { sfx } from './lib/audio';
-import { type LevelInfo, addXp, body, firstTime, hat, levelOf, playerName, recordDaily, setBody, setHat, setPlayerName, xp } from './lib/progress';
+import { type LevelInfo, addXp, body, firstTime, hat, history, levelOf, playerName, plays, recordDaily, setBody, setHat, setPlayerName, xp } from './lib/progress';
 import { isIOS, standalone } from './install';
 import { bodyForLevel, hatForLevel, hatForStreak } from './lib/hats';
 import { challengeLink, friends, getPending, setPending, type Challenge } from './challenge';
 import { shareResult } from './share';
+import { earn, holdStamps } from './lib/stamps';
 
 /* ——— shared bits ——— */
 
@@ -117,6 +118,15 @@ async function awardXp(g: Shell, card: HTMLElement, gain: number) {
     }
   }
   bar.style.width = `${(after.into / after.need) * 100}%`;
+  if (after.level >= 10) earn('lv10');
+}
+
+/** Stamps for a finished run (shown once the results have been revealed). */
+function runStamps(games: GameDef[], ratio: number) {
+  if (ratio >= 0.75) earn('great');
+  if (ratio >= 0.85) earn('legend');
+  if (games.every((g) => plays(g.id) > 0)) earn('tour');
+  if (games.every((g) => Math.max(0, ...history(g.id)) >= 90)) earn('ace');
 }
 
 /** Hitting a streak milestone for the first time unlocks a special hat. */
@@ -189,8 +199,9 @@ export function startPractice(app: HTMLElement, def: GameDef, exit: () => void):
         return;
       }
     }
+    holdStamps(true);
     const results = await g.playSteps(steps, null);
-    if (!results) return;
+    if (!results) return void holdStamps(false);
     const total = results.reduce((a, r) => a + r.acc, 0);
     const isBest = saveScore(def.id, total);
     const best = getBest(def.id) ?? total;
@@ -210,6 +221,7 @@ export function startPractice(app: HTMLElement, def: GameDef, exit: () => void):
     g.say(ratio >= 0.85 ? 'okay that was <b>scary</b> good.' : ratio >= 0.65 ? 'your eyeballs are well calibrated!' : ratio >= 0.45 ? 'solidly 대충. respectable.' : 'that was very 대충. try again?');
     try {
       await awardXp(g, card, total);
+      holdStamps(false);
       const i = await g.choose([`${icons.again} again`, `${icons.home} home`], 0);
       if (i === 1) return exit();
     } catch {
@@ -220,7 +232,10 @@ export function startPractice(app: HTMLElement, def: GameDef, exit: () => void):
     void go(false);
   };
   void go(true);
-  return () => g.destroy();
+  return () => {
+    holdStamps(false);
+    g.destroy();
+  };
 }
 
 /* ——— runs: every game once, against the clock ——— */
@@ -281,8 +296,9 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
     } catch {
       return;
     }
+    holdStamps(true);
     const results = await shell.playSteps(steps, seed);
-    if (!results) return;
+    if (!results) return void holdStamps(false);
 
     shell.setHeader(kind === 'daily' ? `Daily #${day.n}` : 'Quick Run', '대충', color);
     const max = steps.length * 120;
@@ -333,8 +349,23 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
       await awardXp(shell, card, total);
       if (streak?.firstToday) await streakReward(shell, streak.streak, streak.best);
     } catch {
-      return;
+      return void holdStamps(false);
     }
+    runStamps(games, ratio);
+    if (kind === 'daily' && isToday) {
+      earn('first');
+      const hr = new Date().getHours();
+      if (hr < 5) earn('owl');
+      else if (hr < 8) earn('bird');
+    }
+    if (streak) {
+      if (streak.streak >= 3) earn('streak3');
+      if (streak.streak >= 7) earn('streak7');
+      if (streak.streak >= 30) earn('streak30');
+      if (streak.back) earn('back');
+    }
+    if (won) earn('rival');
+    holdStamps(false);
     // after (not before) the first daily, so it never stands between a new player and the game
     if (kind === 'daily' && isIOS() && !standalone() && firstTime('a2hs'))
       shell.say('optional: <b>Share → Add to Home Screen</b> turns 대충 into an app. (on iPhone the app keeps its own streak.)', 'happy');
@@ -364,6 +395,7 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
           kind === 'daily' ? `${text}\ncan you beat me? same puzzles:` : text,
           link,
         );
+        if (kind === 'daily' && res !== 'cancelled') earn('gift');
         if (res === 'copied') shell.say('link copied and picture saved! paste it in the group chat.', 'happy');
         else if (res === 'shared') shell.say('sent! now we wait…', 'cheer');
         else if (res === 'failed' || res === 'saved') {
@@ -378,5 +410,8 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
     }
   };
   void play();
-  return () => g?.destroy();
+  return () => {
+    holdStamps(false);
+    g?.destroy();
+  };
 }

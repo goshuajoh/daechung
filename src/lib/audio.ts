@@ -162,6 +162,13 @@ class Sfx {
     const t = this.now;
     [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.28, { type: 'triangle', vol: 0.2, at: t + i * 0.09 }));
   }
+  stamp() {
+    const t = this.now;
+    this.noise(0.07, { freq: 600, q: 0.9, vol: 0.45, type: 'lowpass', at: t });
+    this.tone(190, 0.12, { to: 80, vol: 0.35, at: t });
+    this.tone(1320, 0.18, { type: 'triangle', vol: 0.12, at: t + 0.12 });
+    this.tone(1760, 0.26, { type: 'sine', vol: 0.1, at: t + 0.2 });
+  }
   boop() {
     this.tone(300, 0.25, { to: 170, type: 'triangle', vol: 0.22 });
   }

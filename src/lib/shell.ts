@@ -2,6 +2,7 @@ import { Stage, stayLively } from './stage';
 import { drawKongi, type Mood } from './kongi';
 import { sfx } from './audio';
 import { type Tier, addPlay, body, firstTime, hat, plays, recordScore, tier } from './progress';
+import { earn } from './stamps';
 import { icons } from './icons';
 import { clamp, pick, rand, seedRandom } from './rng';
 import { BLUSH, BUTTER, LILAC, MINT, PASTELS, PEACH, SKY } from './palette';
@@ -713,6 +714,11 @@ export class Shell {
         this.total += acc + bonus;
         this.bumpTotal(this.total);
         await this.sticker(acc, bonus, res.detail, i === steps.length - 1, i);
+        if (!this.opts.player) {
+          if (acc >= 100) earn('bullseye');
+          if (bonus >= 18) earn('speedy');
+          if (this.combo >= 4) earn('combo');
+        }
       }
       this.setProgress(steps.length);
       return results;

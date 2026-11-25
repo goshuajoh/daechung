@@ -29,7 +29,7 @@ Before every game there's an instruction card. How much it says depends on how m
 - **learning** (1–2 plays): the demo and one line, then it auto-starts after a 3-second bar (tap to go now).
 - **pro** (3+): a quick flash card with a "? how to play" button.
 
-On top of that, a hand points at what to touch if you stall, every target has a plain-words caption ("make this angle", "fill the glass this full"), and the timer bar has a clock and a seconds count. The very first timed card also explains it.
+On top of that, a hand points at what to touch if you stall, every target has a plain-words caption ("make an angle of", "fill the glass to"), and the timer bar has a clock and a seconds count. The very first timed card also explains it, and the first time you ever play a game its clock gets 40% longer. Results are in words ("a little off the middle", "you sped up", "it landed a bit past your flag") rather than pixels or BPM. Tapping back mid-run asks before throwing the run away, and the clock pauses while you decide.
 
 ### Why you come back tomorrow
 
@@ -38,7 +38,8 @@ On top of that, a hand points at what to touch if you stall, every target has a 
 - **Daily streak**: a flame counter plus a 7-day strip on the Daily tile.
 - **Challenge a friend**: after the Daily, "challenge friends" shares a picture of your result plus a link with your scores packed in. Your friend gets the same puzzles, sees your score after each game, and ends on a head-to-head with W/L per game. No server involved.
 - **Friends' scores**: every challenge link you open is remembered, so the Daily tile shows "friends today: Mina 812 · Josh 640", and after your run Kongi tells you who you beat. The Daily tile and finale also count down to the next daily.
-- **Your profile** (tap your level on the home screen): your "eyeball type" (Shape Whisperer, Ratio Ruler, Human Metronome, Physics Brain, Bean Counter or Steady Artist), a six-skill radar, a calendar of your dailies, per-game averages, your name and the hat closet.
+- **Stamp book (칭찬 도장)**: 18 hand-drawn rubber stamps to collect, like the praise stamps a Korean teacher puts in your notebook: first daily, bullseye (a 100), speedy, on fire (4 good rounds in a row), sharp eyes / human ruler (75% / 85% of a run's max), 3-, 7- and 30-day streaks, winner (beat a friend's link), pen pal (send one), party host, night owl, early bird, tourist (every game), all-rounder (90+ in every game), welcome back, and level 10. Each pops in with a stamp "thunk" once the results are revealed (never mid-round); the home screen says "new stamp!" until you look. Locked stamps show how to get them, so there's always a next goal.
+- **Your profile** (tap your level on the home screen): your "eyeball type" (Shape Whisperer, Ratio Ruler, Human Metronome, Physics Brain, Bean Counter or Steady Artist), a six-skill radar, a calendar of your dailies, the stamp book, per-game averages, your name and the hat closet.
 - **Party**: the pass-the-phone screen shows the score to beat, and the results screen can share a podium picture with everyone's Kongi and scores.
 - **Juice**: scores count up, 95+ gets a PERFECT banner with a burst and a screen shake, and 70+ rounds in a row build a combo.
 
@@ -93,11 +94,11 @@ No image assets and no emoji: everything is drawn in code.
 
 ## Install & offline
 
-It's a PWA: add it to your home screen (Chrome shows an install button; on iPhone use Share → Add to Home Screen) and it runs full-screen with its own Kongi icon. A service worker precaches the build, so after the first visit everything, fonts included, works offline. On iPhone the home-screen app keeps its own storage, separate from Safari, so the tip suggests installing *before* your first Daily.
+It's a PWA: add it to your home screen (Chrome shows an install button; on iPhone use Share → Add to Home Screen) and it runs full-screen with its own Kongi icon. A service worker precaches the build, so after the first visit everything, fonts included, works offline. On iPhone the home-screen app keeps its own storage, separate from Safari, so after your first Daily a one-time tip mentions it.
 
 ## Keeping phones cool
 
-Every canvas shares one animation loop and has its own frame-rate cap: home art at about 12fps (the doodles "boil" at 7fps anyway, so it reads as stop-motion), the game stage at 30fps going up to 60fps only while you're dragging or something is flying, and nothing ever runs at the display's 120Hz. Canvases pause when scrolled off-screen, the backing store is capped at 2× pixel density, and the Web Audio context suspends itself after a couple of seconds of silence or when the app is backgrounded. DOM doodle borders use a static SVG filter, because filters are CPU-rendered on iOS.
+Every canvas shares one animation loop and has its own frame-rate cap: home art at about 12fps (the doodles "boil" at 7fps anyway, so it reads as stop-motion), the game stage at 30fps going up to 60fps only while you're dragging or something is flying, and nothing ever runs at the display's 120Hz. The countdown bar is a CSS transition (it runs on the compositor; script wakes once a second for the number), stamps are drawn once rather than animated, canvases pause when scrolled off-screen, the backing store is capped at 2× pixel density, and the Web Audio context suspends itself after a couple of seconds of silence or when the app is backgrounded. DOM doodle borders use a static SVG filter, because filters are CPU-rendered on iOS.
 
 ## Adding a game
 

@@ -1,3 +1,4 @@
+import { earn } from './lib/stamps';
 import { Stage } from './lib/stage';
 import { drawKongi, type Mood } from './lib/kongi';
 import { Shell, el, esc, muteButton, type GameDef, type StepResult } from './lib/shell';
@@ -198,6 +199,7 @@ export function startParty(app: HTMLElement, games: GameDef[], exit: () => void)
   /* ——— leaderboard ——— */
   const board = () =>
     new Promise<'again' | 'setup'>((resolve) => {
+      if (players.length >= 2) earn('party');
       const ranked = [...players].sort((a, b) => (b.total ?? 0) - (a.total ?? 0));
       const n = players[0].results?.length ?? 0;
       const mvps: string[] = [];
