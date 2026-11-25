@@ -74,27 +74,29 @@ export function drawShareCard(c: ShareCard): HTMLCanvasElement {
 }
 
 /**
- * Build the PNG synchronously, so navigator.share() still runs inside the tap that asked
- * for it (iOS Safari refuses to share after a slow async gap).
+ * Turn a canvas into a PNG File synchronously, so navigator.share() still runs inside the
+ * tap that asked for it (iOS Safari refuses to share after a slow async gap).
  */
-function shareFile(card: ShareCard): File | null {
+function canvasFile(cv: HTMLCanvasElement, name = 'daechung.png'): File | null {
   try {
-    const url = drawShareCard(card).toDataURL('image/png');
+    const url = cv.toDataURL('image/png');
     const bin = atob(url.slice(url.indexOf(',') + 1));
     const bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return new File([bytes], 'daechung.png', { type: 'image/png' });
+    return new File([bytes], name, { type: 'image/png' });
   } catch {
     return null;
   }
 }
 
+export type ShareOutcome = 'shared' | 'copied' | 'cancelled' | 'failed';
+
 /**
- * Share the picture + link with the OS share sheet where possible, otherwise copy the
- * text and download the image. 'failed' means nothing worked (show the link instead).
+ * Share a picture + text (+ link) with the OS share sheet where possible, otherwise copy
+ * the text and download the image. 'failed' means nothing worked.
  */
-export async function shareResult(card: ShareCard, text: string, link: string): Promise<'shared' | 'copied' | 'cancelled' | 'failed'> {
-  const file = shareFile(card);
+export async function shareImage(cv: HTMLCanvasElement, text: string, link: string): Promise<ShareOutcome> {
+  const file = canvasFile(cv);
   const full = `${text}\n${link}`;
   try {
     if (file && navigator.canShare?.({ files: [file] })) {
@@ -117,9 +119,11 @@ export async function shareResult(card: ShareCard, text: string, link: string): 
   if (file) {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(file);
-    a.download = 'daechung.png';
+    a.download = file.name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }
   return copied ? 'copied' : 'failed';
 }
+
+export const shareResult = (card: ShareCard, text: string, link: string) => shareImage(drawShareCard(card), text, link);

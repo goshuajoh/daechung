@@ -4,7 +4,9 @@ import { Shell, el, esc, muteButton, type GameDef, type StepResult } from './lib
 import { buildRun, sum, tiles } from './modes';
 import { icons } from './lib/icons';
 import { sfx } from './lib/audio';
-import { BUTTER, INK, LILAC, MINT, PEACH, PINK, SKY, WHITE } from './lib/palette';
+import { BERRY, BUTTER, INK, LILAC, MINT, PAPER, PEACH, PINK, SKY, WHITE } from './lib/palette';
+import { shareImage } from './share';
+import { Pen as PenClass } from './lib/pen';
 import type { Pen } from './lib/pen';
 
 /** Kongi body tints, one per player. */
@@ -217,6 +219,7 @@ export function startParty(app: HTMLElement, games: GameDef[], exit: () => void)
           <h3>closest eyeball per game</h3>
           <ul class="mvps">${mvps.join('')}</ul>
           <div class="board-actions">
+            <button class="btn share"><span>share results</span></button>
             <button class="btn primary again"><span>${icons.again} rematch</span></button>
             <button class="btn setup"><span>change players</span></button>
             <button class="btn home"><span>${icons.home} home</span></button>
@@ -229,6 +232,14 @@ export function startParty(app: HTMLElement, games: GameDef[], exit: () => void)
         root.remove();
       });
       sfx.fanfare();
+      const shareBtn = root.querySelector<HTMLButtonElement>('.share')!;
+      shareBtn.addEventListener('click', async () => {
+        sfx.pop();
+        const text = `대충 party: ${ranked.map((p, i) => `${i + 1}. ${p.name} ${p.total}`).join(', ')}`;
+        const res = await shareImage(drawPartyCard(ranked, n), text, `${location.origin}${location.pathname}`);
+        if (res === 'copied') shareBtn.innerHTML = '<span>copied + saved!</span>';
+        else if (res === 'failed') shareBtn.innerHTML = '<span>couldn\'t share here</span>';
+      });
       root.querySelector('.again')!.addEventListener('click', () => (sfx.pop(), resolve('again')));
       root.querySelector('.setup')!.addEventListener('click', () => (sfx.pop(), resolve('setup')));
       root.querySelector('.home')!.addEventListener('click', () => (sfx.click(), exit()));
@@ -279,7 +290,7 @@ function drawPodium(pen: Pen, w: number, h: number, t: number, ranked: Player[])
     const ky = ground - bh - 2;
     const mood: Mood = s.place === 1 ? 'cheer' : s.place === 2 ? 'happy' : 'wow';
     drawKongi(pen, cx, ky, size, mood, t + s.place * 0.4, { body: p.body });
-    pen.text(p.name, cx, ky - size * 1.08 - (s.place === 1 ? 26 : 8), { size: 18, outline: WHITE });
+    pen.text(p.name, cx, ky - size * 1.08 - (s.place === 1 ? 42 : 8), { size: 18, outline: WHITE });
     if (s.place === 1) {
       // crown, bobbing with the cheer hop
       const cy = ky - size * 0.98 - 8 + Math.sin(t * 6) * 2;
@@ -295,4 +306,38 @@ function drawPodium(pen: Pen, w: number, h: number, t: number, ranked: Player[])
     const a = t * 0.8 + i * 1.6;
     pen.star(w / 2 + Math.cos(a) * w * 0.38, h * 0.25 + Math.sin(a * 1.3) * h * 0.12, 6, { fill: [MINT, LILAC, PINK, BUTTER][i], width: 1.8, seed: 830 + i }, a);
   }
+}
+
+/** 4:5 party results picture: podium + full ranking, drawn with the wobbly pen. */
+export function drawPartyCard(ranked: Player[], games: number): HTMLCanvasElement {
+  const W = 1080, H = 1350;
+  const cv = document.createElement('canvas');
+  cv.width = W;
+  cv.height = H;
+  const ctx = cv.getContext('2d')!;
+  const pen = new PenClass(ctx);
+  pen.setTime(0);
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(0, 0, W, H);
+  pen.rrect(60, 60, W - 120, H - 120, 46, { fill: WHITE, width: 6, seed: 1, shift: [14, 14] });
+  pen.text('대충 party', 130, 160, { size: 76, align: 'left' });
+  pen.text(new Date().toLocaleDateString(), W - 130, 160, { size: 36, font: 'gaegu', align: 'right', alpha: 0.7 });
+  ctx.save();
+  ctx.translate(140, 190);
+  ctx.scale(2, 2);
+  drawPodium(pen, 400, 270, 0.4, ranked);
+  ctx.restore();
+  const many = ranked.length > 5;
+  const size = many ? 36 : 46, gap = many ? 50 : 66;
+  let y = 800;
+  ranked.forEach((p, i) => {
+    pen.circle(190, y, size * 0.36, { fill: p.body, width: 4, seed: 40 + i });
+    pen.text(String(i + 1), 140, y, { size, color: i === 0 ? BERRY : INK });
+    pen.text(p.name, 240, y, { size, align: 'left' });
+    pen.text(String(p.total ?? 0), W - 150, y, { size, align: 'right' });
+    y += gap;
+  });
+  pen.text(`${games} mini-games each · how good is your eyeball?`, W / 2, H - 130, { size: 32, font: 'gaegu', alpha: 0.7 });
+  pen.text(`${location.host}${location.pathname}`.replace(/\/$/, ''), W / 2, H - 92, { size: 28, font: 'gaegu', alpha: 0.5 });
+  return cv;
 }
