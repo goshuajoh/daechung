@@ -45,16 +45,27 @@ export function askLeave(parent: HTMLElement, title: string, text: string): Prom
   return new Promise((resolve) => {
     const m = document.createElement('div');
     m.className = 'leave-wrap';
-    m.innerHTML = `<div class="leave-card" role="dialog" aria-label="${title}">
+    m.innerHTML = `<div class="leave-card" role="alertdialog" aria-modal="true" aria-label="${title}">
         <b>${title}</b><p>${text}</p>
         <div><button class="btn primary stay"><span>keep playing</span></button><button class="btn go"><span>leave</span></button></div>
       </div>`;
     parent.appendChild(m);
+    const back = document.activeElement as HTMLElement | null;
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      done(false);
+    };
     const done = (leave: boolean) => {
+      window.removeEventListener('keydown', key, true);
       m.remove();
+      if (!leave) back?.focus?.();
       resolve(leave);
     };
     m.querySelector('.stay')!.addEventListener('click', () => done(false));
     m.querySelector('.go')!.addEventListener('click', () => done(true));
+    // keyboard / screen reader: start on the safe choice, Escape means "keep playing"
+    window.addEventListener('keydown', key, true);
+    m.querySelector<HTMLButtonElement>('.stay')!.focus();
   });
 }
