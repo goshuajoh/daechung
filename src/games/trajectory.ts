@@ -340,8 +340,9 @@ export const trajectory: GameDef = {
     if (guessX == null) return { score: 0, detail: 'too slow! no flag planted' };
     const err = Math.abs(guessX - path.xL) / Math.abs(path.xL - path.x0);
     const score = 100 * Math.pow(Math.max(0, 1 - err / 0.3), 1.3);
-    const pct = (err * 100).toFixed(1);
-    return { score, detail: err < 0.01 ? 'right on the flag!!' : `off by <b>${pct}%</b> of the throw` };
+    const beyond = (guessX - path.xL) * Math.sign(path.xL - path.x0) > 0; // your flag was past the landing
+    const amount = err < 0.03 ? 'just' : err < 0.08 ? 'a bit' : err < 0.18 ? 'quite a bit' : 'way';
+    return { score, detail: err < 0.01 ? '<b>right on your flag!</b>' : `it landed <b>${amount} ${beyond ? 'short of' : 'past'}</b> your flag` };
   },
 };
 

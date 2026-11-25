@@ -1,7 +1,7 @@
 import { Stage, stayLively } from './stage';
 import { drawKongi, type Mood } from './kongi';
 import { sfx } from './audio';
-import { type Tier, addPlay, body, firstTime, hat, recordScore, tier } from './progress';
+import { type Tier, addPlay, body, firstTime, hat, plays, recordScore, tier } from './progress';
 import { icons } from './icons';
 import { clamp, pick, rand, seedRandom } from './rng';
 import { BLUSH, BUTTER, LILAC, MINT, PASTELS, PEACH, SKY } from './palette';
@@ -141,6 +141,13 @@ export class Shell {
   private clockT0 = 0;
   private clockDur = 0;
   private clockRaf = 0;
+  private clockSecs = 0;
+  private clockPausedAt = 0;
+  private lastSec = 0;
+  private clockDone: (() => void) | null = null;
+  private currentGame: GameDef | null = null;
+  /** A run is in progress (leaving asks first). */
+  private running = false;
 
   constructor(parent: HTMLElement, readonly opts: FrameOpts, private exit: () => void) {
     this.timed = opts.timed;
@@ -176,7 +183,8 @@ export class Shell {
     $('.topbar').appendChild(muteButton());
     $('.back').addEventListener('click', () => {
       sfx.click();
-      this.exit();
+      if (this.running && (this.timed || this.total > 0)) this.confirmLeave();
+      else this.exit();
     });
     if (opts.steps <= 6) for (let i = 0; i < opts.steps; i++) this.progress.appendChild(el('i'));
     else this.progress.classList.add('count');
@@ -230,6 +238,27 @@ export class Shell {
     this.fx.destroy();
     this.kongi.destroy();
     this.root.remove();
+  }
+
+  /** "Leave this run?" — the clock pauses while you decide. */
+  private confirmLeave() {
+    if (this.root.querySelector('.leave-card')) return;
+    this.pauseClock();
+    const m = el('div', 'leave-wrap', `<div class="leave-card" role="dialog" aria-label="leave this run?">
+        <b>leave this run?</b><p>your score so far won't be saved.</p>
+        <div><button class="btn primary stay"><span>keep playing</span></button><button class="btn go"><span>leave</span></button></div>
+      </div>`);
+    this.root.appendChild(m);
+    m.querySelector('.stay')!.addEventListener('click', () => {
+      sfx.pop();
+      m.remove();
+      this.resumeClock();
+    });
+    m.querySelector('.go')!.addEventListener('click', () => {
+      sfx.click();
+      m.remove();
+      this.exit();
+    });
   }
 
   /* ——— header ——— */
@@ -366,43 +395,70 @@ export class Shell {
   /** Starts the countdown bar; resolves when time runs out. Never resolves outside runs. */
   clock(seconds: number): Promise<void> {
     if (!this.timed || this.tutorial) return new Promise(() => {});
+    // the very first time someone plays a game they get extra time
+    if (this.currentGame && plays(this.currentGame.id, this.who) === 0) seconds = Math.round(seconds * 1.4);
     this.stopClock();
     this.clockT0 = performance.now();
     this.clockDur = seconds * 1000;
+    this.clockSecs = seconds;
+    this.clockPausedAt = 0;
     this.clockLive = true;
     this.timeLeft = null;
     this.timebar.classList.add('on');
     this.timebar.classList.remove('warn');
     this.timesec.textContent = `${Math.ceil(seconds)}s`;
-    let lastSec = Math.ceil(seconds);
+    this.lastSec = Math.ceil(seconds);
     return new Promise<void>((resolve) => {
-      const step = () => {
-        if (!this.clockLive || this.signal.aborted) return;
-        const left = Math.max(0, 1 - (performance.now() - this.clockT0) / this.clockDur);
-        this.timefill.style.transform = `scaleX(${left})`;
-        const sec = Math.ceil(left * seconds);
-        if (sec !== lastSec) {
-          lastSec = sec;
-          this.timesec.textContent = `${sec}s`;
-          if (left < 0.34) {
-            this.timebar.classList.add('warn');
-            sfx.click();
-          }
-        }
-        if (left <= 0) {
-          this.clockLive = false;
-          this.timeLeft = 0;
-          sfx.boop();
-          resolve();
-          return;
-        }
-        this.clockRaf = requestAnimationFrame(step);
-      };
-      this.clockRaf = requestAnimationFrame(step);
+      this.clockDone = resolve;
+      this.clockRaf = requestAnimationFrame(this.clockTick);
     });
   }
 
+  private clockTick = () => {
+    if (!this.clockLive || this.signal.aborted) return;
+    const left = Math.max(0, 1 - (performance.now() - this.clockT0) / this.clockDur);
+    this.timefill.style.transform = `scaleX(${left})`;
+    const sec = Math.ceil(left * this.clockSecs);
+    if (sec !== this.lastSec) {
+      this.lastSec = sec;
+      this.timesec.textContent = `${sec}s`;
+      if (left < 0.34) {
+        this.timebar.classList.add('warn');
+        sfx.click();
+      }
+    }
+    if (left <= 0) {
+      this.clockLive = false;
+      this.timeLeft = 0;
+      sfx.boop();
+      this.clockDone?.();
+      return;
+    }
+    this.clockRaf = requestAnimationFrame(this.clockTick);
+  };
+
+  /** Freeze the countdown (e.g. while the "leave?" question is open). */
+  private pauseClock() {
+    if (!this.clockLive) return;
+    this.clockLive = false;
+    this.clockPausedAt = performance.now();
+    cancelAnimationFrame(this.clockRaf);
+  }
+
+  private resumeClock() {
+    if (!this.clockPausedAt) return;
+    this.clockT0 += performance.now() - this.clockPausedAt;
+    this.clockPausedAt = 0;
+    this.clockLive = true;
+    this.clockRaf = requestAnimationFrame(this.clockTick);
+  }
+
   stopClock() {
+    if (this.clockPausedAt) {
+      this.timeLeft = Math.max(0, 1 - (this.clockPausedAt - this.clockT0) / this.clockDur);
+      this.clockPausedAt = 0;
+      return;
+    }
     if (!this.clockLive) return;
     this.clockLive = false;
     cancelAnimationFrame(this.clockRaf);
@@ -479,8 +535,8 @@ export class Shell {
       ${full
         ? `<ol class="howto-steps">${def.steps.map((st, k) => `<li style="--d:${250 + k * 140}ms"><i>${k + 1}</i><span>${st}</span></li>`).join('')}</ol>`
         : `<p class="brief-verb">${def.verb}</p>`}
-      ${clockNote ? `<p class="brief-note">${icons.clock}<span>a <b>timer bar</b> appears up top. finish before it runs out. faster = bonus points!</span></p>` : ''}
-      ${!full ? '<div class="brief-count"><i></i><span>3</span></div>' : ''}`);
+      ${clockNote ? `<p class="brief-note">${icons.clock}<span>a <b>timer</b> runs up top. faster = bonus!</span></p>` : ''}
+`);
     card.style.setProperty('--tc', def.color);
     this.overlay.appendChild(card);
     const demo = new Stage(card.querySelector<HTMLElement>('.howto-demo')!, 'demo-canvas', { fps: 30 });
@@ -493,40 +549,14 @@ export class Shell {
     sfx.whoosh(0.25);
     stayLively();
     this.setMood('happy');
-    if (full) {
-      this.say(practised ? "got the hang of it? press <b>I'm ready!</b>" : `new game! watch the little hand. want a <b>free practice</b> go first?`);
-    } else {
-      this.say(`${def.verb} <em>· starting in a sec, tap to go now</em>`);
-    }
+    const tryLabel = this.timed ? 'practice first' : 'try with hints';
+    if (full) this.say(practised ? "got it? press <b>I'm ready!</b>" : this.timed ? 'new game! try it <b>free</b> first?' : 'watch the hand, then start!');
+    else this.say(`${def.verb} <em>· press go when you're ready</em>`);
+    // no auto-start until someone has played a game three times (then they get the quick flash card)
     const labels = full
-      ? [practised ? (goLabel ?? "I'm ready!") : (goLabel ?? "let's go!"), practised ? 'practice again' : 'practice first']
+      ? [practised ? (goLabel ?? "I'm ready!") : (goLabel ?? "let's go!"), practised ? 'practice again' : tryLabel]
       : ['go!', 'practice'];
-    let pick: number;
-    if (full) pick = await this.choose(labels, 0);
-    else {
-      // learning: auto-start after a short countdown (tap the card to go now)
-      const num = card.querySelector('.brief-count span')!;
-      const ring = card.querySelector<HTMLElement>('.brief-count i')!;
-      const T = 3500;
-      const t0 = performance.now();
-      ring.style.animationDuration = `${T}ms`;
-      pick = await Promise.race([
-        this.choose(labels, 0),
-        this.until<number>((done) => {
-          const id = setInterval(() => {
-            const left = Math.ceil((T - (performance.now() - t0)) / 1000);
-            num.textContent = String(Math.max(1, left));
-            if (performance.now() - t0 >= T) done(0);
-          }, 100);
-          const tap = (e: Event) => {
-            e.preventDefault();
-            done(0);
-          };
-          card.addEventListener('click', tap);
-          return () => clearInterval(id);
-        }),
-      ]);
-    }
+    const pick = await this.choose(labels, 0);
     this.clearActions();
     this.demoCleanup?.();
     return pick === 0 ? 'go' : 'practice';
@@ -626,6 +656,7 @@ export class Shell {
   async playSteps(steps: Step[], seed: number | null): Promise<StepResult[] | null> {
     const results: StepResult[] = [];
     this.combo = 0;
+    this.running = true;
     try {
       for (let i = 0; i < steps.length; i++) {
         const { game, level } = steps[i];
@@ -637,6 +668,7 @@ export class Shell {
         this.clearActions();
         if (this.timed) await this.briefing(game, i);
         this.timeLeft = null;
+        this.currentGame = game;
         seedRandom(seed == null ? null : (seed * 7919 + (i + 1) * 104729 + level) | 0);
         stayLively();
         let res: RoundResult;
@@ -660,6 +692,9 @@ export class Shell {
     } catch (e) {
       if (isAbort(e)) return null;
       throw e;
+    } finally {
+      this.running = false;
+      this.currentGame = null;
     }
   }
 

@@ -132,7 +132,7 @@ export const color: GameDef = {
       if (phase === 'memo') {
         drawJelly(pen, cx, cy, r1 * 0.8, hsl(target, s, l), t);
         const left = Math.max(0, memo - k);
-        drawPrompt(pen, w, `${left.toFixed(1)}s`, 'remember this colour!');
+        drawPrompt(pen, w, `${left.toFixed(1)}s`, 'remember this colour! time left:');
         return;
       }
       if (phase === 'gap') {
@@ -168,7 +168,7 @@ export const color: GameDef = {
         pen.star(tx, ty, (r1 - r0) * 0.45 * pop + 1, { fill: hsl(target, s, l), seed: 42, width: 2.5 }, 0);
       } else {
         drawJelly(pen, cx, cy, r0 * 0.72, hsl(pickHue, s, l), t);
-        if (!touched) pen.text('spin the wheel', cx, cy + r1 + 26, { size: 21, font: 'gaegu', alpha: 0.5 + Math.sin(t * 4) * 0.25 });
+
       }
       const [kx, ky] = ringPos(cx, cy, mid, pickHue);
       pen.circle(kx, ky, (r1 - r0) * 0.6, { fill: WHITE, seed: 43, width: 3 });
@@ -247,6 +247,7 @@ export const color: GameDef = {
     if (!touched) return { score: 0, detail: 'too slow! the wheel never moved' };
     const d = hueDiff(pickHue, target);
     const score = 100 * Math.pow(Math.max(0, 1 - d / 50), 1.25);
-    return { score, detail: d < 2 ? 'that is literally the same colour' : `off by <b>${Math.round(d)}°</b> on the wheel` };
+    const words = d < 2 ? 'literally the same colour!' : d < 6 ? 'practically the same colour' : d < 14 ? 'a very close shade' : d < 28 ? 'a bit off' : 'quite a different colour';
+    return { score, detail: `<b>${words}</b>` };
   },
 };

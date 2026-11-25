@@ -154,7 +154,7 @@ export const beat: GameDef = {
       if (g.tutorial) {
         g.say(`listen to 4 drum beats. when the drum <b>stops</b>, tap the screen 4 more times on the same beat. the circles help you!`, 'listen');
       } else if (plan.mode === 'keep') {
-        g.say(`<b>${bpm} BPM</b>. listen to ${plan.listen} beats, then <b>keep tapping</b> ${YOUR_TAPS} more on your own.`, 'listen');
+        g.say(`listen to ${plan.listen} beats, then <b>keep tapping</b> ${YOUR_TAPS} more on your own.`, 'listen');
       } else {
         g.say(`only ${plan.listen} clicks this time. keep counting in your head and <b>tap once on beat ${tapBeat + 1}</b>.`, 'focus');
       }
@@ -327,11 +327,17 @@ export const beat: GameDef = {
         };
         sfx.shh();
         await g.wait(900);
-        const ms = Math.round(mean * 1000);
-        const drift = Math.round(userBpm - bpm);
-        const tempo = taps.length < 3 ? 'you went quiet!' : Math.abs(drift) <= 2 ? 'rock steady tempo' : drift > 0 ? `you rushed to ${Math.round(userBpm)} BPM` : `you dragged to ${Math.round(userBpm)} BPM`;
+        const drift = userBpm - bpm;
+        const given = errs.filter((e): e is number => e != null);
+        const bias = given.length ? given.reduce((a, b) => a + b, 0) / given.length : 0;
+        const how = mean < 0.04 ? 'right on the beat!' : mean < 0.09 ? 'close to the beat' : mean < 0.16 ? 'a bit off the beat' : 'off the beat';
+        const why =
+          taps.length < 3 ? 'you stopped tapping!'
+          : Math.abs(drift) > bpm * 0.04 ? (drift > 0 ? 'you sped up' : 'you slowed down')
+          : Math.abs(bias) > Math.max(0.05, mean * 0.6) ? `steady, but every tap was ${bias > 0 ? 'late' : 'early'}. tap right on the flash`
+          : 'nice steady tempo';
         const score = 100 * Math.pow(Math.max(0, 1 - mean / (0.45 * iv)), 1.2);
-        return { score, detail: `avg <b>${ms}ms</b> off · ${tempo}` };
+        return { score, detail: `<b>${how}</b> · ${why}` };
       }
 
       const expected = t0 + tapBeat * iv;
@@ -350,7 +356,7 @@ export const beat: GameDef = {
       const score = 100 * Math.pow(Math.max(0, 1 - Math.abs(err) / (0.9 * iv)), 1.2);
       return {
         score,
-        detail: !taps.length ? 'you never tapped!' : ms < 15 ? `dead on — <b>${ms}ms</b> off!` : `<b>${ms}ms</b> ${err < 0 ? 'early' : 'late'} (${bpm} BPM)`,
+        detail: !taps.length ? 'you never tapped!' : ms < 30 ? '<b>dead on the beat!</b>' : `<b>${(ms / 1000).toFixed(2)}s too ${err < 0 ? 'early' : 'late'}</b>`,
       };
     }
   },

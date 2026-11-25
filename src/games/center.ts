@@ -133,7 +133,8 @@ export const center: GameDef = {
         pen.line(gx - 8, gy - 8, gx + 8, gy + 8, { width: 3.4, seed: 5 });
         pen.line(gx + 8, gy - 8, gx - 8, gy + 8, { width: 3.4, seed: 6 });
         const d = Math.hypot(gx - cx, gy - cy);
-        pen.text(`${Math.round(d)}px`, (gx + cx) / 2 + 18, (gy + cy) / 2 - 16, { size: Math.max(1, 20 * pop), outline: WHITE });
+        void d;
+        pen.text('you', gx + 16, gy - 14, { size: Math.max(1, 18 * pop), outline: WHITE, align: 'left' });
       }
     };
 
@@ -170,6 +171,8 @@ export const center: GameDef = {
     const e = Math.hypot(g0[0], g0[1]);
     const d = e * R;
     const score = 100 * Math.pow(Math.max(0, 1 - e / 0.25), 1.3);
-    return { score, detail: d < 2 ? 'pixel perfect!!' : `off by <b>${Math.round(d)}px</b> (${(e * 100).toFixed(1)}% of the radius)` };
+    void d;
+    const words = e < 0.02 ? 'dead center!' : e < 0.06 ? 'just a hair off the middle' : e < 0.14 ? 'a little off the middle' : e < 0.3 ? 'noticeably off the middle' : 'way off the middle';
+    return { score, detail: `<b>${words}</b>` };
   },
 };

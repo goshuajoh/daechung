@@ -269,9 +269,6 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
     };
     if (rival) shell.say(`<b>${esc(rival.name)}</b> challenged you! they scored <b>${rival.total}</b> on daily #${rival.day}. same puzzles. go get 'em!`, 'cheer');
     else if (pending) shell.say(`that challenge was for daily #${pending.day}, which has expired. play today's and send one back!`, 'happy');
-    else if (kind === 'daily' && isIOS() && !standalone() && firstTime('a2hs'))
-      // before the first daily (not after!), because the home-screen app keeps its own progress on iPhone
-      shell.say("tip: tap <b>Share → Add to Home Screen</b> first, then play from there. the home-screen app keeps its own streak!", 'happy');
     else
       shell.say(
         kind === 'daily'
@@ -338,6 +335,9 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
     } catch {
       return;
     }
+    // after (not before) the first daily, so it never stands between a new player and the game
+    if (kind === 'daily' && isIOS() && !standalone() && firstTime('a2hs'))
+      shell.say('optional: <b>Share → Add to Home Screen</b> turns 대충 into an app. (on iPhone the app keeps its own streak.)', 'happy');
     const text = `대충 ${label}: ${total}/${max} “${runRank(ratio)}”${rival ? ` (vs ${rival.name} ${rival.total})` : ''}`;
     for (;;) {
       let i: number;

@@ -176,12 +176,12 @@ export const cut: GameDef = {
     const k = loop(t, 4.8);
     const food = FOODS[0];
     const len = w * 0.72, hgt = Math.min(len * food.ratio, h * 0.2);
-    const x0 = w * 0.1, y = h * 0.76;
+    const x0 = w * 0.1, y = h * 0.66;
     const kk = k < 0.12 ? 0.75 : lerp(0.75, 0.3, easeInOut(span(k, 0.12, 0.5)));
     const cutX = x0 + len * kk;
     const sc = clamp(h / 230, 0.45, 0.85);
     pen.text('30%', w * 0.14, h * 0.15, { size: Math.min(30, h * 0.18) });
-    const pill: Pt = [w * 0.82, h * 0.15];
+    const pill: Pt = [w * 0.84, h * 0.88];
     const press = k > 0.6 && k < 0.66 ? 1 : 0;
     drawPill(pen, pill[0], pill[1], 'chop!', PEACH, press);
     if (k < 0.66) {
@@ -239,7 +239,7 @@ export const cut: GameDef = {
 
     stage.draw = (pen, w, h, t) => {
       const { len, hgt, x0, y } = layout(w, h);
-      drawPrompt(pen, w, `${target}%`, 'make the LEFT piece this big');
+      drawPrompt(pen, w, `${target}%`, 'cut so the LEFT piece is');
       // shadow
       pen.ellipse(x0 + len / 2, y + hgt / 2 + 12, len * 0.52, 9, { fill: 'rgba(59,44,40,0.1)', stroke: null, shift: [0, 0], seed: 140 });
       const cutX = x0 + len * knifeK;
@@ -254,7 +254,7 @@ export const cut: GameDef = {
         pen.line(cutX, by - 7, cutX, by + 7, { stroke: BERRY, width: 2.5, seed: 144 });
         pen.text('left piece', (x0 + cutX) / 2, by + 18, { size: 17, font: 'gaegu', color: BERRY });
         drawKnife(pen, cutX, y - hgt / 2 - 8, aimed ? 0 : 10 + Math.sin(t * 4) * 6);
-        if (!aimed) pen.text('move me', cutX + 60, y - hgt / 2 - 70, { size: 20, font: 'gaegu', alpha: 0.6 });
+        if (!aimed) pen.text('move me', cutX - 14, y - hgt / 2 - 70, { size: 20, font: 'gaegu', alpha: 0.6, align: 'right' });
         const handleY = y - hgt / 2 - 8 - 64 - 24 - (aimed ? 0 : 10 + Math.sin(t * 4) * 6);
         if (!aimed && t - born > 1.2) drawHand(pen, cutX + 12, handleY, { press: 1, alpha: 0.9 });
         if (g.tutorial && aimed) pen.text(`${Math.round(knifeK * 100)}%`, cutX + 34, handleY - 10, { size: 26, color: BERRY, align: 'left', outline: WHITE });
@@ -378,6 +378,6 @@ export const cut: GameDef = {
     const err = Math.abs(guess - target);
     if (timedOut && !aimed) return { score: 0, detail: `too slow! it was ${target}%` };
     const score = 100 * Math.pow(Math.max(0, 1 - err / 20), 1.3);
-    return { score, detail: err < 0.5 ? `basically perfect: ${guess}%!` : `you cut ${guess}% — off by <b>${err.toFixed(1)}</b>` };
+    return { score, detail: err < 0.5 ? `basically perfect: <b>${guess}%</b>!` : `you cut <b>${guess}%</b> (the goal was ${target}%)` };
   },
 };

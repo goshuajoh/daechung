@@ -171,7 +171,7 @@ export const pour: GameDef = {
       }
       tip += ((pouring ? 1 : 0) - tip) * Math.min(1, dt * 10);
       wobble += ((pouring ? 1 : 0) - wobble) * Math.min(1, dt * 3);
-      drawPrompt(pen, w, `${target}%`, 'fill the glass this full');
+      drawPrompt(pen, w, `${target}%`, 'fill the glass to');
       const mouth: Pt = [cup.x + cup.w * 0.24, cup.y - 22];
       const sc = clamp(h / 540, 0.72, 1);
       if (tip > 0.6) {
@@ -191,9 +191,8 @@ export const pour: GameDef = {
         else pen.circle(d.x, d.y, 4, { fill: drink.color, width: 1.6, seed: 90 + (i % 5) });
       }
       if (!started) {
-        const roomRight = w - (cup.x + cup.w) > 130;
-        const hx = roomRight ? cup.x + cup.w + 18 : w / 2, hy = roomRight ? cup.y + cup.h * 0.2 : h - 14;
-        pen.text('press & hold anywhere', hx, hy, { size: 20, font: 'gaegu', align: roomRight ? 'left' : 'center', alpha: 0.55 + Math.sin(t * 4) * 0.25 });
+        // only where there's room beside the glass (otherwise the hand + Kongi's bubble say it)
+        if (w - (cup.x + cup.w) > 150) pen.text('press & hold anywhere', cup.x + cup.w + 18, cup.y + cup.h * 0.2, { size: 20, font: 'gaegu', align: 'left', alpha: 0.55 + Math.sin(t * 4) * 0.25 });
       }
       if (!started && t - born > 1.2) {
         const k = (t - born) % 1.6;
@@ -281,6 +280,6 @@ export const pour: GameDef = {
     const err = Math.abs(got - target);
     if (fill >= 1) return { score: 0, detail: 'it overflowed! <b>100%</b>+' };
     const score = 100 * Math.pow(Math.max(0, 1 - err / 20), 1.3);
-    return { score, detail: timedOut ? `time's up at ${got}%` : err < 0.5 ? `perfect pour: ${got}%!` : `you poured ${got}% — off by <b>${err.toFixed(1)}</b>` };
+    return { score, detail: timedOut ? `time's up at ${got}%` : err < 0.5 ? `perfect pour: <b>${got}%</b>!` : `you poured <b>${got}%</b> (the goal was ${target}%)` };
   },
 };

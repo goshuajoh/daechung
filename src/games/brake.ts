@@ -75,7 +75,7 @@ export const brake: GameDef = {
   ],
 
   thumb(pen, w, h, t) {
-    const roadY = h * 0.8, lineX = w * 0.78;
+    const roadY = h * 0.8, lineX = w * 0.7;
     drawRoad(pen, w, roadY, lineX);
     const k = (t % 3.2) / 3.2;
     const x = lerp(w * 0.1, lineX, Math.min(1, easeOutBack(Math.min(1, k * 1.4)) * 0.98));

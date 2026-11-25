@@ -91,7 +91,7 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
           <small>daily #${day.n}</small>
           <b>Daily 대충</b>
           <p>${RUN_LENGTH} mini-games against the clock. Same ones for everyone today.</p>
-          <span class="week" aria-label="last 7 days">${week}</span>
+          <span class="week" aria-label="this week">${week}</span>
           ${pals.length ? `<span class="pals">friends today: ${pals.slice(0, 3).map((f) => `<b>${esc(f.name)}</b> ${f.total}`).join(' · ')}</span>` : ''}
           <span class="best">${dailyBest == null ? 'not played today!' : `today: <b>${dailyBest}</b> · next in <span class="next-in">${nextDailyIn()}</span>`}</span>
         </div>
@@ -128,7 +128,7 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
         .join('')}
     </ul>
     <footer class="home-foot">
-      <span>drawn with wobbly lines · scores stay on this device ·</span>
+      <span>drawn with wobbly lines</span><span>scores stay on this device</span>
       <button class="link-btn reset-tut">show tutorials again</button>
       <span class="install-slot"></span>
     </footer>`;

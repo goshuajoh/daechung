@@ -42,8 +42,8 @@ export function drawPill(pen: Pen, cx: number, cy: number, label: string, color:
   pen.text(label, cx + d, cy + d + 1, { size: 15 });
 }
 
-/** The big target at the top of the stage, with a plain-words caption under it. */
+/** The target at the top of the stage: a plain-words caption, then the big number ("stop the watch at exactly · 4s"). */
 export function drawPrompt(pen: Pen, w: number, big: string, caption: string) {
-  pen.text(big, w / 2, 40, { size: 44 });
-  pen.text(caption, w / 2, 76, { size: 19, font: 'gaegu', alpha: 0.65 });
+  pen.text(caption, w / 2, 22, { size: 19, font: 'gaegu', alpha: 0.7 });
+  pen.text(big, w / 2, 58, { size: 44 });
 }

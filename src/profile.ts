@@ -30,7 +30,7 @@ function skillValues() {
 }
 
 function drawRadar(pen: Pen, w: number, h: number, t: number, vals: (number | null)[]) {
-  const cx = w / 2, cy = h / 2 + 6, R = Math.min(w * 0.3, h * 0.36);
+  const cx = w / 2, cy = h / 2 + 4, R = Math.min(w * 0.28, h / 2 - 46);
   const n = AXES.length;
   const pt = (i: number, r: number): Pt => {
     const a = -Math.PI / 2 + (i / n) * Math.PI * 2;
@@ -42,8 +42,8 @@ function drawRadar(pen: Pen, w: number, h: number, t: number, vals: (number | nu
   for (let i = 0; i < n; i++) {
     const [x, y] = pt(i, R);
     pen.line(cx, cy, x, y, { width: 1.5, alpha: 0.3, seed: 2010 + i });
-    const [lx, ly] = pt(i, R + 26);
-    pen.text(vals[i] == null ? `${AXES[i].name} ?` : AXES[i].name, lx, ly, { size: 16, font: 'gaegu', alpha: vals[i] == null ? 0.45 : 0.85 });
+    const [lx, ly] = pt(i, R + 32);
+    pen.text(vals[i] == null ? `${AXES[i].name} ?` : AXES[i].name, lx, ly, { size: 17, font: 'gaegu', outline: WHITE, alpha: vals[i] == null ? 0.5 : 0.9 });
   }
   if (vals.every((v) => v == null)) return;
   // the shape grows in on open
@@ -99,7 +99,7 @@ export function renderProfile(app: HTMLElement, games: GameDef[], exit: () => vo
       <div class="me-hero">
         <button class="me-kongi" aria-label="change Kongi's hat"></button>
         <div class="me-stats">
-          <label class="me-name">name <input maxlength="14" placeholder="for challenge links" value="${esc(playerName())}" /></label>
+          <label class="me-name">name <input maxlength="14" placeholder="shown to friends" value="${esc(playerName())}" /></label>
           <div class="lvl"><b>Lv ${lv.level}</b><i><u style="width:${(lv.into / lv.need) * 100}%"></u></i><span>${lv.into}/${lv.need} xp</span></div>
           <div class="streak ${streak(day.n) ? '' : 'cold'}">${icons.flame}<b>${streak(day.n)}-day streak</b><em>best ${bestStreak()}</em></div>
           <button class="btn hat-btn"><span>change hat</span></button>

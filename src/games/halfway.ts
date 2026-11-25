@@ -88,9 +88,9 @@ function drawPin(pen: Pen, p: Pt, color = BERRY) {
 function ends(pen: Pen, px: Pt[]) {
   const s = px[0], e = px[px.length - 1];
   pen.circle(s[0], s[1], 9, { fill: MINT, seed: 1620, width: 2.5 });
-  pen.text('start', s[0], s[1] + 22, { size: 15, font: 'gaegu' });
+  pen.text('start', s[0], s[1] + 22, { size: 15, font: 'gaegu', outline: WHITE });
   pen.star(e[0], e[1], 11, { fill: PEACH, seed: 1621, width: 2.5 }, 0);
-  pen.text('end', e[0], e[1] + 22, { size: 15, font: 'gaegu' });
+  pen.text('end', e[0], e[1] + 22, { size: 15, font: 'gaegu', outline: WHITE });
 }
 
 const DEMO: Road = { pts: catmull([[0, 0.7], [0.3, 0.2], [0.55, 0.8], [0.8, 0.25], [1, 0.55]]) };
@@ -169,7 +169,7 @@ export const halfway: GameDef = {
         drawPin(pen, p);
         if (g.tutorial && !doneAt) pen.text(`${Math.round(s * 100)}%`, p[0] + 16, p[1] - 30, { size: 22, color: BERRY, align: 'left', outline: WHITE });
       } else if (t - born > 1.4) {
-        const p = at(m, 0.25 + Math.sin((t - born) * 1.5) * 0.08);
+        const p = at(m, 0.03 + Math.abs(Math.sin((t - born) * 1.5)) * 0.04); // near the start, not near the answer
         drawHand(pen, p[0], p[1], { press: 1, alpha: 0.8 });
       }
       if (doneAt) {

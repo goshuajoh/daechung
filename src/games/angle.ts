@@ -138,7 +138,7 @@ export const angle: GameDef = {
 
     stage.draw = (pen, w, h, t) => {
       const { v, L } = layout(w, h);
-      drawPrompt(pen, w, `${target}°`, 'make this angle');
+      drawPrompt(pen, w, `${target}°`, 'make an angle of');
       if (!revealAt) {
         drawAngle(pen, v, L, base, open, { handle: dragging ? 1.35 : 1 + Math.sin(t * 5) * 0.08, arrow: !touched });
         if (!touched) {
