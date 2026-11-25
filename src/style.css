@@ -1011,3 +1011,20 @@ button { font: inherit; color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+/* ——— very small phones (320px wide, or short screens) ——— */
+@media (max-width: 350px) {
+  .lvl b, .lvl::after { white-space: nowrap; }
+  .lvl i { width: 40px; }
+  .lvl::after { padding: 1px 6px; font-size: 14px; }
+  .lvl.has-new::after { content: 'new! ›'; }
+  .hero h1 { font-size: 58px; }
+}
+@media (max-height: 600px) {
+  .howto { padding: 8px 12px 10px; gap: 5px; }
+  .howto-head b { font-size: 24px; }
+  .howto-demo, .brief:not(.full) .howto-demo { height: clamp(80px, 18vh, 130px); }
+  .howto-steps { gap: 3px; }
+  .howto-steps li { font-size: 17px; }
+}
+
