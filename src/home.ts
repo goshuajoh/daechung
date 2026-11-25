@@ -96,7 +96,11 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
           <p>${RUN_LENGTH} mini-games against the clock. Same ones for everyone today.</p>
           <span class="week" aria-label="this week">${week}</span>
           ${pals.length ? `<span class="pals">friends today: ${pals.slice(0, 3).map((f) => `<b>${esc(f.name)}</b> ${f.total}`).join(' · ')}</span>` : ''}
-          <span class="best">${dailyBest == null ? 'not played today!' : `today: <b>${dailyBest}</b> · next in <span class="next-in">${nextDailyIn()}</span>`}</span>
+          <span class="best">${
+            dailyBest != null ? `today: <b>${dailyBest}</b> · next in <span class="next-in">${nextDailyIn()}</span>`
+            : streakNow ? `<em class="on-line">play today to make it <b>${streakNow + 1} days</b> in a row!</em>`
+            : 'not played today!'
+          }</span>
         </div>
       </button>
       <button class="mode m-run" style="--c:${LILAC};--tilt:1.2deg" data-go="run">

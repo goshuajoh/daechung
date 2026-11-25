@@ -756,6 +756,8 @@ button { font: inherit; color: inherit; }
 .streak.cold b { opacity: .6; }
 .streak .pils { display: inline-flex; margin-left: 4px; }
 .streak .pils svg { width: 22px; height: 22px; margin-left: -3px; }
+.mode .on-line { font-style: normal; color: var(--berry); }
+.mode .on-line b { font-size: inherit; }
 .nap-note { flex-basis: 100%; font-size: 15px; line-height: 1.15; color: var(--berry); }
 .streak-chip svg + svg { margin-left: 2px; }
 .pillow-row { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 4px; }
