@@ -98,6 +98,7 @@ export const center: GameDef = {
       cy: rand(0.42, 0.62),
       size: rand(0.24, 0.36),
     };
+    /** Tap position relative to the shape (in radii), so a layout change can't move it. */
     let guess: Pt | null = null;
     let doneAt = 0;
 
@@ -127,7 +128,7 @@ export const center: GameDef = {
       if (kind === 'arc') pen.circle(cx, cy, R, { stroke: INK, width: 2, dash: [6, 8], alpha: 0.3, seed: 3 });
       pen.star(cx, cy, 11 * pop + 1, { fill: BERRY, seed: 4, width: 2 }, 0);
       if (guess) {
-        const [gx, gy] = guess;
+        const [gx, gy] = [cx + guess[0] * R, cy + guess[1] * R];
         pen.line(gx, gy, cx, cy, { stroke: BERRY, width: 2, dash: [4, 5], seed: 7 });
         pen.line(gx - 8, gy - 8, gx + 8, gy + 8, { width: 3.4, seed: 5 });
         pen.line(gx + 8, gy - 8, gx - 8, gy + 8, { width: 3.4, seed: 6 });
@@ -140,7 +141,9 @@ export const center: GameDef = {
     let tapped: (() => void) | null = null;
     const up = (e: PointerEvent) => {
       if (doneAt) return;
-      guess = stage.local(e);
+      const [px, py] = stage.local(e);
+      const { cx, cy, R } = layout(stage.w, stage.h);
+      guess = [(px - cx) / R, (py - cy) / R];
       sfx.click();
       tapped?.();
     };
@@ -162,10 +165,10 @@ export const center: GameDef = {
     sfx.whoosh(0.25);
     await g.wait(1100);
     if (timedOut || !guess) return { score: 0, detail: 'too slow! no tap' };
-    const { cx, cy, R } = layout(stage.w, stage.h);
+    const { R } = layout(stage.w, stage.h);
     const g0 = guess as Pt;
-    const d = Math.hypot(g0[0] - cx, g0[1] - cy);
-    const e = d / R;
+    const e = Math.hypot(g0[0], g0[1]);
+    const d = e * R;
     const score = 100 * Math.pow(Math.max(0, 1 - e / 0.25), 1.3);
     return { score, detail: d < 2 ? 'pixel perfect!!' : `off by <b>${Math.round(d)}px</b> (${(e * 100).toFixed(1)}% of the radius)` };
   },

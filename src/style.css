@@ -236,7 +236,8 @@ button { font: inherit; color: inherit; }
   padding: 8px 14px 9px;
   font-size: 21px;
   line-height: 1.12;
-  min-height: 46px;
+  /* room for 3 lines, so a longer message doesn't resize the game area mid-round */
+  min-height: calc(3 * 1.12em + 17px);
   display: flex; align-items: center;
 }
 .bubble::after {

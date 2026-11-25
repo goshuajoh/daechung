@@ -146,7 +146,12 @@ export const circle: GameDef = {
         // the ideal circle, faint and dashed
         pen.circle(cx, cy, verdict.R, { stroke: INK, width: 2, dash: [6, 8], alpha: 0.35, seed: 2 });
       }
-      if (pts.length > 1) drawStroke(pen.ctx, pts, cx, cy, verdict?.ok ? verdict.R : null);
+      if (pts.length > 1) {
+        pen.ctx.save();
+        pen.ctx.translate(cx, cy);
+        drawStroke(pen.ctx, pts, 0, 0, verdict?.ok ? verdict.R : null);
+        pen.ctx.restore();
+      }
       drawDot(pen, cx, cy, t);
       if (verdict?.ok) {
         const pop = easeOutBack(clamp((t - doneAt) / 0.4, 0, 1));
@@ -161,7 +166,9 @@ export const circle: GameDef = {
       canvas.setPointerCapture(e.pointerId);
       drawing = true;
       verdict = null;
-      pts = [stage.local(e)];
+      const [cx, cy] = centre();
+      const [px, py] = stage.local(e);
+      pts = [[px - cx, py - cy]];
       lastPt = pts[0];
       sfx.click();
       g.setMood('focus');
@@ -170,19 +177,19 @@ export const circle: GameDef = {
       if (!drawing) return;
       const evs = e.getCoalescedEvents?.() ?? [e];
       for (const ev of evs) {
-        const p = stage.local(ev);
+        const [cx, cy] = centre();
+        const [px, py] = stage.local(ev);
+        const p: Pt = [px - cx, py - cy];
         if (lastPt && Math.hypot(p[0] - lastPt[0], p[1] - lastPt[1]) < 2.5) continue;
         pts.push(p);
         lastPt = p;
       }
-      const [cx, cy] = centre();
-      g.look = [clamp((lastPt![0] - cx) / 120, -1, 1), clamp((lastPt![1] - cy) / 120, -1, 1)];
+      g.look = [clamp(lastPt![0] / 120, -1, 1), clamp(lastPt![1] / 120, -1, 1)];
     };
     const up = () => {
       if (!drawing) return;
       drawing = false;
-      const [cx, cy] = centre();
-      const v = judge(pts, cx, cy);
+      const v = judge(pts, 0, 0);
       if (!v.ok) {
         g.say(`${v.why} <em>try again</em>`, 'wow');
         sfx.boop();
@@ -214,8 +221,7 @@ export const circle: GameDef = {
     g.look = undefined;
     if (timedOut) {
       // judge whatever is on the canvas
-      const [cx, cy] = centre();
-      const v = judge(pts, cx, cy);
+      const v = judge(pts, 0, 0);
       if (v.ok) verdict = v;
     }
     doneAt = stage.time;

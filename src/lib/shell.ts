@@ -1,4 +1,4 @@
-import { Stage } from './stage';
+import { Stage, stayLively } from './stage';
 import { drawKongi, type Mood } from './kongi';
 import { sfx } from './audio';
 import { addPlay, firstTime, hat, tier, type Tier } from './progress';
@@ -188,8 +188,9 @@ export class Shell {
     // effects layer (particles) above the game, below the DOM overlay; only draws while busy
     this.fx = new Stage(wrap, 'fx', { fps: 30, activeFps: 60 });
     wrap.insertBefore(this.fx.canvas, this.overlay);
+    this.fx.sleep(); // no memory for an empty effects layer until something bursts
 
-    this.kongi = new Stage($('.kongi-slot'), 'kongi-mini', { fps: 20 });
+    this.kongi = new Stage($('.kongi-slot'), 'kongi-mini', { fps: 15 });
     this.kongi.draw = (pen, w, h, t, dt) => {
       this.bop = Math.max(0, this.bop - dt * 5);
       drawKongi(pen, w / 2, h - 6, Math.min(w * 0.68, h * 0.74), this.mood, t, { look: this.look, bop: this.bop, body: opts.player?.body, hat: opts.player ? undefined : hat() });
@@ -466,7 +467,7 @@ export class Shell {
   private async instructionCard(def: GameDef, i: number | null, t: Tier, practised: boolean, goLabel?: string): Promise<'go' | 'practice'> {
     this.overlay.innerHTML = '';
     this.clearActions();
-    this.stage.draw = () => {};
+    this.stage.clear();
     const full = t === 'new';
     const counter = i == null ? '' : `<small>${i + 1} / ${this.opts.steps}</small>`;
     const badge = full && !practised ? '<em>new game!</em>' : '';
@@ -490,6 +491,7 @@ export class Shell {
       this.demoCleanup = null;
     };
     sfx.whoosh(0.25);
+    stayLively();
     this.setMood('happy');
     if (full) {
       this.say(practised ? "got the hang of it? press <b>I'm ready!</b>" : `new game! watch the little hand. want a <b>free practice</b> go first?`);
@@ -593,6 +595,7 @@ export class Shell {
     let res: RoundResult | null = null;
     try {
       seedRandom(null);
+      stayLively();
       res = await def.play(this, 0);
     } catch (e) {
       // skipping only cancels this round; leaving the screen still propagates
@@ -632,6 +635,7 @@ export class Shell {
         if (this.timed) await this.briefing(game, i);
         this.timeLeft = null;
         seedRandom(seed == null ? null : (seed * 7919 + (i + 1) * 104729 + level) | 0);
+        stayLively();
         let res: RoundResult;
         try {
           res = await game.play(this, level);
@@ -657,6 +661,7 @@ export class Shell {
 
   private async sticker(acc: number, bonus: number, detail: string, last: boolean, i: number) {
     const [, word, sub, color] = STICKERS.find(([min]) => acc >= min)!;
+    stayLively();
     const s = el('div', 'sticker', `<b>0</b><span>${word}</span>${bonus ? `<em>+${bonus} speed</em>` : ''}`);
     s.style.setProperty('--sc', color);
     s.style.setProperty('--rot', `${rand(-12, 10).toFixed(1)}deg`);
@@ -753,7 +758,7 @@ export class Shell {
       else if (p.kind === 1) pen.circle(p.x, p.y, p.s * 0.5, { fill: p.c, width: 1.8, seed: 700 + k, alpha: al });
       else pen.line(p.x - Math.cos(p.r) * p.s, p.y - Math.sin(p.r) * p.s, p.x + Math.cos(p.r) * p.s, p.y + Math.sin(p.r) * p.s, { stroke: p.c === BUTTER ? PEACH : p.c, width: 3, seed: 700 + k, alpha: al });
     }
-    if (!ps.length) this.fx.draw = null; // canvas was just cleared; stop drawing until the next burst
+    if (!ps.length) this.fx.sleep(); // done: stop drawing and free the layer until the next burst
   };
 
   /* ——— finale helpers ——— */
@@ -771,6 +776,7 @@ export class Shell {
 
   /** Doodle confetti falling behind whatever card is showing. */
   confetti(amount: number, extra?: (pen: Pen, w: number, h: number, t: number) => void) {
+    stayLively();
     const bits: Confetto[] = [];
     const n = Math.round(8 + clamp(amount, 0, 1) * 52);
     const { w } = this.stage;

@@ -150,7 +150,7 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
   const kongi = mount(kongiSlot, 'kongi-hero', (pen, w, h, t) => {
     if (t > moodUntil) mood = Math.floor(t / 5) % 3 === 2 ? 'idle' : 'happy';
     drawKongi(pen, w / 2, h - 10, Math.min(w * 0.66, h * 0.66), mood, t, { hat: hat() });
-  }, 20);
+  }, 15);
   const openCloset = () => closet(() => (mood = 'cheer', moodUntil = kongi.time + 1.6));
   root.querySelector('.lvl')!.addEventListener('click', () => {
     sfx.pop();
@@ -168,8 +168,9 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
   });
 
   const arts = root.querySelectorAll('.mode-art');
-  mount(arts[0], 'art-canvas', (pen, w, h, t) => drawCalendar(pen, w, h, t, day.n));
-  mount(arts[1], 'art-canvas', (pen, w, h, t) => drawStopwatch(pen, w, h, t));
+  // the calendar only changes when the lines boil (~7fps); the stopwatch hand ticks 4x a second
+  mount(arts[0], 'art-canvas', (pen, w, h, t) => drawCalendar(pen, w, h, t, day.n), 7);
+  mount(arts[1], 'art-canvas', (pen, w, h, t) => drawStopwatch(pen, w, h, t), 8);
   mount(arts[2], 'art-canvas', (pen, w, h, t) => drawTrio(pen, w, h, t));
   root.querySelectorAll<HTMLButtonElement>('.mode').forEach((b) =>
     b.addEventListener('click', () => {
