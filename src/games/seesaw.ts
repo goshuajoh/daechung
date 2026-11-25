@@ -35,20 +35,31 @@ function makeRiders(level: number): Rider[] {
   for (let tries = 0; ; tries++) {
     const ms = level === 0 ? [1, rand(2, 3.2)] : level === 1 ? [1, rand(1.6, 3.4)] : Array.from({ length: n }, () => rand(0.5, 3));
     const big = Math.max(...ms);
-    // half a Kongi (arms included), as a fraction of the plank
-    const half = (m: number) => 0.58 * S * Math.sqrt(m / big);
-    const seat = (m: number, k: number) => lerp(0.5 * S * Math.sqrt(m / big), 1 - 0.5 * S * Math.sqrt(m / big), k);
-    const rs: Rider[] =
-      level === 0 ? [{ x: seat(ms[0], 0), m: ms[0], body: '' }, { x: seat(ms[1], 1), m: ms[1], body: '' }]
-      : level === 1 ? [{ x: seat(ms[0], 0), m: ms[0], body: '' }, { x: seat(ms[1], rand(0.62, 0.86)), m: ms[1], body: '' }]
-      : ms.map((m) => ({ x: seat(m, random()), m, body: '' }));
+    // a Kongi's width (arms included), as a fraction of the plank
+    const wide = (m: number) => 1.16 * S * Math.sqrt(m / big);
+    let rs: Rider[];
+    if (level < 2) {
+      const seat = (m: number, k: number) => lerp(0.5 * S * Math.sqrt(m / big), 1 - 0.5 * S * Math.sqrt(m / big), k);
+      rs = [{ x: seat(ms[0], 0), m: ms[0], body: '' }, { x: seat(ms[1], level === 0 ? 1 : rand(0.62, 0.86)), m: ms[1], body: '' }];
+    } else {
+      // share the free plank out as random gaps between them: nobody can sit on anybody
+      const ws = ms.map(wide);
+      const free = Math.max(0, 1 - ws.reduce((a, b) => a + b, 0));
+      const gaps = Array.from({ length: n + 1 }, (_, k) => rand(0.3, 1) * (k === 0 || k === n ? 0.5 : 1));
+      const total = gaps.reduce((a, b) => a + b, 0);
+      let x = 0;
+      rs = ms.map((m, k) => {
+        x += (gaps[k] / total) * free + ws[k] / 2;
+        const r = { x, m, body: '' };
+        x += ws[k] / 2;
+        return r;
+      });
+    }
     if (random() < 0.5) rs.forEach((r) => (r.x = 1 - r.x));
     rs.sort((a, b) => a.x - b.x);
-    // nobody sits on anybody
-    const roomy = rs.every((r, i) => i === 0 || r.x - rs[i - 1].x > half(r.m) + half(rs[i - 1].m));
     const b = balance(rs);
     // the answer must be on the plank, and not just "the middle"
-    if ((roomy && b > 0.14 && b < 0.86 && Math.abs(b - 0.5) > 0.07) || tries > 400) {
+    if ((b > 0.14 && b < 0.86 && Math.abs(b - 0.5) > 0.07) || tries > 400) {
       rs.forEach((r, i) => (r.body = colours[(i * 2 + Math.floor(random() * 6)) % colours.length]));
       return rs;
     }

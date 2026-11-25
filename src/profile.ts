@@ -139,7 +139,7 @@ export function renderProfile(app: HTMLElement, games: GameDef[], exit: () => vo
   const grid = root.querySelector<HTMLElement>('.stamps')!;
   // new stamps count as seen once the grid has actually been on screen
   const seenObs = new IntersectionObserver((es) => {
-    if (es.some((e) => e.isIntersecting)) {
+    if (es.some((e) => e.isIntersecting && e.intersectionRatio >= 0.3)) {
       markStampsSeen();
       seenObs.disconnect();
     }

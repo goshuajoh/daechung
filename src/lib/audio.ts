@@ -95,6 +95,18 @@ class Sfx {
     if (this.master && this.ctx) this.master.gain.setTargetAtTime(m ? 0 : 0.7, this.ctx.currentTime, 0.02);
   }
 
+  /** Silence everything already scheduled (e.g. a metronome whose round was cancelled). */
+  cutScheduled() {
+    const c = this.ctx;
+    if (!c || !this.master) return;
+    const old = this.master;
+    old.gain.setTargetAtTime(0, c.currentTime, 0.01);
+    window.setTimeout(() => old.disconnect(), 120);
+    this.master = c.createGain();
+    this.master.gain.value = this.muted ? 0 : 0.7;
+    this.master.connect(c.destination);
+  }
+
   tone(freq: number, dur: number, o: { type?: OscillatorType; vol?: number; to?: number; at?: number; attack?: number } = {}) {
     if (this.muted) return;
     const c = this.ensure();

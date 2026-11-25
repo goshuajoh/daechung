@@ -155,6 +155,7 @@ export const tunnel: GameDef = {
         clearTimeout(id);
       };
     });
+    g.commit();
     if (tapped) {
       tapAt = stage.time;
       sfx.tick(true);

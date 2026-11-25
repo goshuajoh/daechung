@@ -203,6 +203,7 @@ export const bigger: GameDef = {
       canvas.removeEventListener('pointerdown', down);
       window.removeEventListener('keydown', key);
     }
+    g.commit();
     await g.wait(300);
     const right = results.filter(Boolean).length;
     g.setMood(right >= count - 1 ? 'cheer' : right >= count / 2 ? 'happy' : 'sad');

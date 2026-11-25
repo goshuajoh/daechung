@@ -167,6 +167,7 @@ export const stopwatch: GameDef = {
         const id = setTimeout(() => done(true), (T * 2.5 + 3) * 1000);
         return () => clearTimeout(id);
       });
+      g.commit();
       if (timedOut) stoppedAt = (performance.now() - t0) / 1000;
     } finally {
       clearTimeout(shhTimer);

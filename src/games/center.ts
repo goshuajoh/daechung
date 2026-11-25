@@ -162,6 +162,7 @@ export const center: GameDef = {
       g.stopClock();
       canvas.removeEventListener('pointerup', up);
     }
+    g.commit();
     doneAt = stage.time;
     g.setMood('wow');
     sfx.whoosh(0.25);

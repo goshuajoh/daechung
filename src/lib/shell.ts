@@ -250,6 +250,13 @@ export class Shell {
 
   /** True while a mini-game's play() is running (so "leave?" has to stop it). */
   private inRound = false;
+  /** The player's answer is in (the rest of play() is the reveal): "leave?" must not throw it away. */
+  private committed = false;
+
+  /** Games call this the moment the player's input is final. */
+  commit() {
+    this.committed = true;
+  }
   /** Set when "leave?" stopped a round: it's played again (fresh puzzle) if they stay. */
   private replay = false;
 
@@ -288,7 +295,7 @@ export class Shell {
     this.leaveOpen = true;
     this.pauseClock();
     // a round in progress can't be frozen (things fly, flash, roll), so stop it; "keep playing" restarts it
-    if (this.inRound) {
+    if (this.inRound && !this.committed) {
       this.replay = true;
       this.roundAc.abort();
     }
@@ -307,7 +314,20 @@ export class Shell {
     m.querySelector('.go')!.addEventListener('click', () => {
       sfx.click();
       m.remove();
-      this.exit();
+      if (!this.guarded || !(history.state as { dcGuard?: number } | null)?.dcGuard) return this.exit();
+      // step off our extra history entry first, so Back from home doesn't land on it
+      this.guarded = false;
+      window.removeEventListener('popstate', this.onPop);
+      let gone = false;
+      const leave = () => {
+        if (gone) return;
+        gone = true;
+        window.removeEventListener('popstate', leave);
+        this.exit();
+      };
+      window.addEventListener('popstate', leave);
+      window.setTimeout(leave, 400);
+      history.back();
     });
   }
 
@@ -552,6 +572,7 @@ export class Shell {
   /** Wait for the confirm button or the countdown. Returns true if time ran out. */
   async lockIn(confirm: { pressed: Promise<void> }, seconds: number): Promise<boolean> {
     const timedOut = await Promise.race([confirm.pressed.then(() => false), this.clock(seconds).then(() => true)]);
+    this.commit();
     this.stopClock();
     this.clearActions();
     if (timedOut) this.say("time's up!", 'sad');
@@ -748,10 +769,12 @@ export class Shell {
         this.clearActions();
         await this.gate();
         if (this.timed) await this.briefing(game, i);
-        // the briefing ran on behind "leave?": count them in again
-        if ((await this.gate()) && this.timed) await this.goFlash();
         let res!: RoundResult;
         for (let again = 0; ; again++) {
+          // if "leave?" is (or was just) open, wait for the answer and count them in again;
+          // nothing may await between this and play(), or a round could start behind the dialog
+          while (await this.gate()) await this.goFlash();
+          this.committed = false;
           this.timeLeft = null;
           this.currentGame = game;
           // a replay gets a different puzzle, so peeking behind "leave?" doesn't help

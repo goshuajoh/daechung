@@ -176,6 +176,7 @@ export const brake: GameDef = {
         clearInterval(id);
       };
     });
+    g.commit();
     if (braked) {
       xb = pos(stage.time);
       tb = stage.time;

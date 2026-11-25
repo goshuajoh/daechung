@@ -136,6 +136,9 @@ export const beat: GameDef = {
     const release = sfx.keepAwake();
     try {
       return await playBeat();
+    } catch (e) {
+      sfx.cutScheduled(); // round cancelled: don't let its metronome tick on into the next one
+      throw e;
     } finally {
       release();
     }
@@ -299,6 +302,7 @@ export const beat: GameDef = {
           clearInterval(poll);
         };
       });
+      g.commit();
       done = true;
       g.setMood('idle');
 

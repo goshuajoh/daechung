@@ -372,7 +372,7 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
     }
     holdStamps(false);
     if (streak?.napped)
-      shell.say(`you missed ${streak.napped > 1 ? `${streak.napped} days` : 'yesterday'}, so I napped on a <b>pillow</b> for you. streak saved!`, 'happy');
+      shell.say(`you missed ${streak.napped > 1 ? `${streak.napped} days` : 'yesterday'}, so I napped on a <b>pillow</b> for you. streak saved!${streak.pillow ? ` and ${streak.streak} days earns you a new one.` : ''}`, 'happy');
     else if (streak?.pillow)
       shell.say(`${streak.streak} days in a row earns a <b>nap pillow</b>! if you miss a day, it saves your streak. (you have ${streak.pillows})`, 'cheer');
     // back to the result comment (a level-up or streak reward may have replaced it)

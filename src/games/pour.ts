@@ -272,6 +272,7 @@ export const pour: GameDef = {
       window.removeEventListener('keydown', kd);
       window.removeEventListener('keyup', ku);
     }
+    g.commit();
     if (!started) return { score: 0, detail: `too slow! it was ${target}%` };
     doneAt = stage.time;
     g.setMood('idle');

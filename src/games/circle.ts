@@ -219,6 +219,7 @@ export const circle: GameDef = {
       canvas.removeEventListener('pointerup', up);
       canvas.removeEventListener('pointercancel', up);
     }
+    g.commit();
     g.look = undefined;
     if (timedOut) {
       // judge whatever is on the canvas

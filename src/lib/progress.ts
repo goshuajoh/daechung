@@ -39,7 +39,13 @@ function load(): Progress {
   let p = fresh();
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) p = { ...p, ...JSON.parse(raw) };
+    if (raw) {
+      const saved = JSON.parse(raw);
+      p = { ...p, ...saved };
+      // older saves counted seen stamps instead of timing them: everything seen then stays seen
+      if (saved.seenAt == null && typeof saved.seen === 'number' && saved.seen >= Object.keys(p.stamps ?? {}).length)
+        p.seenAt = Math.max(0, ...Object.values(p.stamps ?? {}));
+    }
     // carry over the older "learned" flags as one play each
     const old = JSON.parse(localStorage.getItem('daechung:learned') || '{}') as Record<string, 1>;
     for (const k of Object.keys(old)) p.plays[k] = Math.max(p.plays[k] ?? 0, 1);
