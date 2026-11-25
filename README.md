@@ -8,7 +8,7 @@ Fourteen tiny hand-drawn mini-games that test how good your eyeball is, hosted b
 
 ![home screen](docs/preview-home.png)
 
-![the five games on a phone](docs/preview-games.png)
+![all 14 mini-games mid-round on a phone](docs/preview-games.png)
 
 ## Ways to play
 
