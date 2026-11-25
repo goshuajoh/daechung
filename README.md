@@ -102,7 +102,7 @@ It's a PWA: add it to your home screen (Chrome shows an install button; on iPhon
 
 ## Keeping phones cool
 
-Every canvas shares one animation loop and has its own frame-rate cap: home art at about 12fps (the doodles "boil" at 7fps anyway, so it reads as stop-motion), the game stage at 30fps going up to 60fps only while you're dragging or something is flying, and nothing ever runs at the display's 120Hz. The countdown bar is a CSS transition (it runs on the compositor; script wakes once a second for the number), stamps are drawn once rather than animated, canvases pause when scrolled off-screen, the backing store is capped at 2× pixel density, and the Web Audio context suspends itself after a couple of seconds of silence or when the app is backgrounded. DOM doodle borders use a static SVG filter, because filters are CPU-rendered on iOS.
+Every canvas shares one animation loop and has its own frame-rate cap: home art at about 12fps (the doodles "boil" at 7fps anyway, so it reads as stop-motion), the game stage at 30fps (15fps in games where nothing moves until you do, until your answer is in) going up to 60fps only while you're dragging or something is flying, and nothing ever runs at the display's 120Hz. The countdown bar is a CSS transition (it runs on the compositor; script wakes once a second for the number), stamps are drawn once rather than animated, canvases pause when scrolled off-screen, the backing store is capped at 2× pixel density, and the Web Audio context suspends itself after a couple of seconds of silence or when the app is backgrounded. DOM doodle borders use a static SVG filter, because filters are CPU-rendered on iOS.
 
 ## Adding a game
 

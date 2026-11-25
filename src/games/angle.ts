@@ -66,6 +66,7 @@ export const angle: GameDef = {
   name: 'Angle Eye',
   kr: '각도',
   short: 'Angle',
+  calm: true,
   blurb: 'Drag the arm to the angle. No protractor allowed.',
   howto: "I'll say an angle, you <b>drag the arm</b> to make it. No peeking at numbers while you aim!",
   color: BUTTER,

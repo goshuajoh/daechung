@@ -127,6 +127,7 @@ export const seesaw: GameDef = {
   name: 'Seesaw',
   kr: '시소',
   short: 'Seesaw',
+  calm: true,
   blurb: 'Slide the pivot so the Kongis balance. Bigger Kongis are heavier than they look.',
   howto: 'Slide the <b>triangle</b> under the plank to the spot where the seesaw would <b>balance</b>, then lock it in. A Kongi twice as wide weighs <b>four times</b> as much.',
   verb: 'balance the seesaw!',
@@ -177,9 +178,7 @@ export const seesaw: GameDef = {
     let doneAt = 0;
     let finalAng = 0;
     const born = stage.time;
-    // nothing moves while you think: 15fps is plenty (dragging still runs at full speed)
-    const fps0 = stage.fps;
-    stage.fps = 15;
+
 
     g.say(
       g.tutorial
@@ -265,7 +264,6 @@ export const seesaw: GameDef = {
       canvas.removeEventListener('pointerup', up);
       canvas.removeEventListener('pointercancel', up);
       window.removeEventListener('keydown', key);
-      stage.fps = fps0; // the tip deserves full speed
     }
     const e = Math.abs(p - answer);
     finalAng = e < 0.012 ? 0 : tiltFor(rs, p);

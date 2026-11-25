@@ -67,6 +67,7 @@ export const circle: GameDef = {
   name: 'Perfect Circle',
   kr: '동그라미',
   short: 'Circle',
+  calm: true,
   blurb: 'Draw a perfect circle around the dot. One stroke, no take-backs.',
   howto: 'Put your finger down and <b>draw one circle</b> around the dot. Lift to finish.',
   verb: 'draw a perfect circle!',

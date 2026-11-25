@@ -147,6 +147,7 @@ export const cut: GameDef = {
   name: 'Fair Slice',
   kr: '자르기',
   short: 'Slice',
+  calm: true,
   blurb: 'Cut it at exactly 37%. Your sibling is watching.',
   howto: 'Move the knife and <b>chop</b> so the <b>left</b> piece is exactly the % I ask for.',
   color: PEACH,

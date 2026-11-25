@@ -57,6 +57,7 @@ export const color: GameDef = {
   name: 'Color Recall',
   kr: '색깔',
   short: 'Colour',
+  calm: true,
   blurb: 'Stare at a colour for 3 seconds. Then find it again on the wheel.',
   howto: "I'll show you a colour for a few seconds. Then <b>spin the wheel</b> to find the exact same one.",
   verb: 'remember this colour!',

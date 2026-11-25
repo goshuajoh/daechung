@@ -29,6 +29,9 @@ export interface GameDef {
   untimed?: boolean;
   /** One-word English label for small spaces (result tiles, share card). */
   short: string;
+  /** Nothing moves on its own while waiting for input: the frame redraws at 15fps until the
+   *  answer is in (dragging still runs at full speed; the reveal goes back to 30). */
+  calm?: boolean;
   /** First daily number this game can appear in, so adding a game never reshuffles a daily people are already playing. */
   since?: number;
   /** Practice ranks: [minimum total out of 500, title], highest first. */
@@ -268,6 +271,7 @@ export class Shell {
   /** Games call this the moment the player's input is final. */
   commit() {
     this.committed = true;
+    this.stage.fps = 30; // the reveal animates: full speed again
   }
   /** Set when "leave?" stopped a round: it is played again from the top if they stay. */
   private replay = false;
@@ -741,12 +745,14 @@ export class Shell {
     try {
       seedRandom(null);
       stayLively();
+      this.stage.fps = def.calm ? 15 : 30;
       res = await def.play(this, 0);
     } catch (e) {
       // skipping only cancels this round; leaving the screen still propagates
       if (!isAbort(e) || this.signal.aborted) throw e;
     } finally {
       this.tutorial = false;
+      this.stage.fps = 30;
       this.hideClock();
       this.root.classList.remove('practicing');
       skip.remove();
@@ -787,6 +793,7 @@ export class Shell {
           // nothing may await between this and play(), or a round could start behind the dialog
           while (await this.gate()) await this.goFlash();
           this.committed = false;
+          this.stage.fps = game.calm ? 15 : 30;
           this.timeLeft = null;
           this.currentGame = game;
           // a replay is the same puzzle (no re-rolling a Daily for an easier one); input-locked rounds never replay
@@ -800,6 +807,7 @@ export class Shell {
             if (!isAbort(e) || this.signal.aborted || !this.replay) throw e;
           } finally {
             this.inRound = false;
+            this.stage.fps = 30;
             seedRandom(null);
             this.hideClock();
           }

@@ -46,6 +46,7 @@ export const center: GameDef = {
   name: 'Dead Center',
   kr: '중심',
   short: 'Center',
+  calm: true,
   blurb: "Tap the exact center. Easy, right? Wait till it's only half a circle.",
   howto: 'Tap the <b>exact center</b> of the shape. Later ones only show a piece of it!',
   verb: 'tap the center!',

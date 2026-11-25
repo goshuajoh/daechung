@@ -107,6 +107,7 @@ export const straighten: GameDef = {
   name: 'Straighten',
   kr: '똑바로',
   short: 'Level',
+  calm: true,
   blurb: "Kongi's picture is crooked. Make it level. The wallpaper lies.",
   howto: "Kongi's picture is hanging crooked. <b>Drag left or right</b> to turn it until it's perfectly <b>level</b>, then lock it in. Watch out: slanted wallpaper tricks your eyes.",
   verb: 'make it level!',
@@ -158,9 +159,6 @@ export const straighten: GameDef = {
     let doneAt = 0;
     const born = g.stage.time;
     const stage = g.stage;
-    // a still picture while you look: 15fps is plenty (dragging still runs at full speed)
-    const fps0 = stage.fps;
-    stage.fps = 15;
 
     g.say(
       g.tutorial
@@ -244,7 +242,6 @@ export const straighten: GameDef = {
       canvas.removeEventListener('pointerup', up);
       canvas.removeEventListener('pointercancel', up);
       window.removeEventListener('keydown', key);
-      stage.fps = fps0;
     }
     doneAt = stage.time;
     g.setMood(Math.abs(deg) < 1 ? 'cheer' : 'wow');
