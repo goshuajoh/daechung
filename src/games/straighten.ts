@@ -43,12 +43,18 @@ function drawWall(pen: Pen, w: number, h: number, room: Room) {
   ctx.rotate(room.room * D2R);
   const R = Math.hypot(w, h);
   if (room.stripes) {
-    const a = (room.stripes + 0) * D2R;
+    // wallpaper: one cheap path of straight lines (it's background, it doesn't need to boil)
+    const a = room.stripes * D2R;
     const dx = Math.cos(a), dy = Math.sin(a);
+    ctx.beginPath();
     for (let k = -14; k <= 14; k++) {
       const ox = -dy * k * 26, oy = dx * k * 26;
-      pen.line(ox - dx * R, oy - dy * R, ox + dx * R, oy + dy * R, { width: 2, alpha: 0.18, seed: 1800 + k, rough: 0.6 });
+      ctx.moveTo(ox - dx * R, oy - dy * R);
+      ctx.lineTo(ox + dx * R, oy + dy * R);
     }
+    ctx.strokeStyle = 'rgba(59,44,40,0.17)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
   }
   if (room.room) {
     // floor, ceiling and a window, all tilted with the room
@@ -152,6 +158,9 @@ export const straighten: GameDef = {
     let doneAt = 0;
     const born = g.stage.time;
     const stage = g.stage;
+    // a still picture while you look: 15fps is plenty (dragging still runs at full speed)
+    const fps0 = stage.fps;
+    stage.fps = 15;
 
     g.say(
       g.tutorial
@@ -235,6 +244,7 @@ export const straighten: GameDef = {
       canvas.removeEventListener('pointerup', up);
       canvas.removeEventListener('pointercancel', up);
       window.removeEventListener('keydown', key);
+      stage.fps = fps0;
     }
     doneAt = stage.time;
     g.setMood(Math.abs(deg) < 1 ? 'cheer' : 'wow');
