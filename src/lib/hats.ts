@@ -11,6 +11,8 @@ export interface Hat {
   level: number;
   /** Unlocked by a daily streak of this many days instead of by level. */
   streak?: number;
+  /** Unlocked by earning this stamp (seasonal), with this label while locked. */
+  stamp?: { id: string; label: string };
   /** Drawn in front of the face (glasses) instead of on the head. */
   front?: boolean;
   /** Draw the sprout on top of the hat (it pokes through), or hide it. */
@@ -210,14 +212,41 @@ export const HATS: Hat[] = [
       pen.star(tip[0] - W * 0.2, tip[1] + W * 0.02, W * (0.025 + (1 - tw) * 0.025), { fill: '#ffd24d', width: 1.4, seed: 1144 }, -t);
     },
   },
+  {
+    // seasonal: play a Daily in December
+    id: 'winter',
+    name: 'winter hat',
+    level: 99,
+    stamp: { id: 'winter', label: 'December Daily' },
+    sprout: 'hidden',
+    draw(pen, x, y, W, t) {
+      const r = W * 0.44;
+      // a slouchy knit hat flopping to one side, pompom swinging
+      const sway = Math.sin(t * 2.2) * 0.04;
+      const tipX = x + W * (0.42 + sway), tipY = y - W * 0.02;
+      pen.blob([[x - r, y + W * 0.24], [x - r * 0.8, y - W * 0.16], [x - r * 0.1, y - W * 0.3], [x + r * 0.6, y - W * 0.22], [tipX, tipY], [x + r * 0.7, y + W * 0.06], [x + r, y + W * 0.24]], {
+        fill: BERRY, width: lw(W), seed: 1200, rough: 0.5,
+      });
+      // knit dots
+      for (let i = 0; i < 5; i++) pen.circle(x - r * 0.6 + i * r * 0.32, y + W * 0.02 - Math.sin((i / 4) * Math.PI) * W * 0.12, W * 0.018, { fill: WHITE, stroke: null, seed: 1201 + i, shift: [0, 0] });
+      // fluffy brim
+      const brim: Pt[] = [];
+      for (let i = 0; i <= 10; i++) brim.push([x - r * 1.05 + (i / 10) * r * 2.1, y + W * 0.21 + (i % 2 ? -W * 0.014 : W * 0.01)]);
+      for (let i = 10; i >= 0; i--) brim.push([x - r * 1.05 + (i / 10) * r * 2.1, y + W * 0.33 + (i % 2 ? W * 0.012 : -W * 0.006)]);
+      pen.blob(brim, { fill: WHITE, width: lw(W), seed: 1210, rough: 0.4 });
+      // pompom
+      pen.circle(tipX + W * 0.04, tipY + W * 0.06, W * 0.09, { fill: WHITE, width: lw(W), seed: 1211 });
+    },
+  },
 ];
 
 export const hatById = (id: string | undefined) => HATS.find((h) => h.id === id) ?? HATS[0];
 /** The hat (if any) unlocked by reaching exactly this level. */
 export const hatForLevel = (level: number) => HATS.find((h) => h.level === level && h.id !== 'none') ?? null;
 export const hatForStreak = (days: number) => HATS.find((h) => h.streak === days) ?? null;
-export const hatUnlocked = (h: Hat, level: number, bestStreak: number) => (h.streak ? bestStreak >= h.streak : level >= h.level);
-export const lockLabel = (h: Hat) => (h.streak ? `${h.streak}-day streak` : `Lv ${h.level}`);
+export const hatUnlocked = (h: Hat, level: number, bestStreak: number, hasStamp: (id: string) => boolean = () => false) =>
+  h.stamp ? hasStamp(h.stamp.id) : h.streak ? bestStreak >= h.streak : level >= h.level;
+export const lockLabel = (h: Hat) => (h.stamp ? h.stamp.label : h.streak ? `${h.streak}-day streak` : `Lv ${h.level}`);
 
 /** Kongi body colours, unlocked after the last hat (levels 11+). */
 export const BODIES = [

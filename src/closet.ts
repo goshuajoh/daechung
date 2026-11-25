@@ -1,7 +1,7 @@
 import { Stage } from './lib/stage';
 import { drawKongi } from './lib/kongi';
 import { BODIES, HATS, hatUnlocked, lockLabel } from './lib/hats';
-import { bestStreak, body, bodyId, hat, levelOf, setBody, setHat, xp } from './lib/progress';
+import { bestStreak, body, bodyId, hasStamp, hat, levelOf, setBody, setHat, xp } from './lib/progress';
 import { sfx } from './lib/audio';
 
 /** Kongi's closet: hats (levels 2–10, streak rewards) and body colours (levels 11+). */
@@ -14,7 +14,7 @@ export function closet(onPick: () => void = () => {}) {
       <b>Kongi's closet</b>
       <p>level up and keep your streak to unlock more. you're <b>Lv ${lv}</b>.</p>
       <div class="hats">${HATS.map((h) => {
-        const open = hatUnlocked(h, lv, best);
+        const open = hatUnlocked(h, lv, best, hasStamp);
         return `<button class="hat${h.id === hat() ? ' on' : ''}" data-id="${h.id}" ${open ? '' : `aria-disabled="true" data-lock="${lockLabel(h).replace('Lv', 'level')}"`}><span class="hat-art"></span><em>${open ? h.name : lockLabel(h)}</em></button>`;
       }).join('')}</div>
       <p class="closet-msg" aria-live="polite"></p>
@@ -32,7 +32,7 @@ export function closet(onPick: () => void = () => {}) {
   const nope = (b: HTMLElement) => {
     sfx.click();
     const lock = b.dataset.lock ?? '';
-    msg.textContent = lock.includes('streak') ? `keep a ${lock} to unlock this one!` : `unlocks at ${lock}. keep playing!`;
+    msg.textContent = lock.includes('streak') ? `keep a ${lock} to unlock this one!` : lock.includes('December') ? 'play any Daily in December to unlock it!' : `unlocks at ${lock}. keep playing!`;
     b.classList.remove('wiggle');
     void b.offsetWidth;
     b.classList.add('wiggle');

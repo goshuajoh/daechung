@@ -140,6 +140,19 @@ const STAMPS_: Stamp[] = [
     },
   },
   {
+    id: 'winter', name: 'snow day', hint: 'play a Daily in December (unlocks a winter hat)', ink: '#5b8fc4', bg: WHITE,
+    icon: (p, x, y, r, ink) => {
+      // a six-armed snowflake
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
+        p.line(x, y, x + c * r * 0.9, y + s * r * 0.9, { stroke: ink, width: 2.6, seed: 59 + i });
+        const bx = x + c * r * 0.55, by = y + s * r * 0.55;
+        p.line(bx, by, bx + Math.cos(a + 0.7) * r * 0.25, by + Math.sin(a + 0.7) * r * 0.25, { stroke: ink, width: 2, seed: 70 + i });
+        p.line(bx, by, bx + Math.cos(a - 0.7) * r * 0.25, by + Math.sin(a - 0.7) * r * 0.25, { stroke: ink, width: 2, seed: 80 + i });
+      }
+    },
+  },
+  {
     id: 'lv10', name: 'level 10', hint: 'reach level 10', ink: '#8a68c0', bg: LILAC,
     icon: (p, x, y, r, ink) => {
       p.circle(x, y, r * 0.8, { stroke: ink, fill: BUTTER, width: 2.6, seed: 56 });

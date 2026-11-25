@@ -355,6 +355,7 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
     runStamps(games, ratio);
     if (kind === 'daily' && isToday) {
       earn('first');
+      if (new Date().getMonth() === 11) earn('winter'); // December: the winter hat
       const hr = new Date().getHours();
       if (hr < 5) earn('owl');
       else if (hr < 8) earn('bird');
