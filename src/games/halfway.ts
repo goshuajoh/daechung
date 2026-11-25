@@ -33,7 +33,9 @@ function catmull(ctrl: Pt[], per = 24): Pt[] {
 function makeRoad(level: number): Road {
   const n = 4 + Math.min(level, 3);
   const ctrl: Pt[] = [];
-  for (let i = 0; i < n; i++) ctrl.push([i / (n - 1), rand(0.15, 0.85)]);
+  // alternate high/low so even the easiest road is properly wavy
+  const flip = random() < 0.5;
+  for (let i = 0; i < n; i++) ctrl.push([i / (n - 1), (i % 2 === 0) !== flip ? rand(0.12, 0.38) : rand(0.62, 0.88)]);
   if (level >= 2) {
     // cram a tight squiggle into one stretch so that half is much longer than it looks
     const seg = randInt(0, n - 2);
