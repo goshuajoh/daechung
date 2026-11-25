@@ -14,6 +14,8 @@ export interface StageOpts {
 /** After this long without any touch/key, ambient redraws drop to IDLE_FPS (motion boosts itself back up). */
 const IDLE_AFTER = 8000;
 const IDLE_FPS = 12;
+/** With "Reduce Motion" on, ambient redraws are capped lower (gameplay boosts still run). */
+const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 
 const live = new Set<Stage>();
 let lastInput = performance.now();
@@ -183,7 +185,8 @@ export class Stage {
   render(now: number): number {
     if (!this._draw || !this.onScreen || this.w < 2 || this.h < 2) return Infinity;
     const active = now < this.activeUntil;
-    const fps = active ? this.activeFps : now - lastInput > IDLE_AFTER ? Math.min(this.fps, IDLE_FPS) : this.fps;
+    const calm = now - lastInput > IDLE_AFTER || reduced.matches;
+    const fps = active ? this.activeFps : calm ? Math.min(this.fps, IDLE_FPS) : this.fps;
     const interval = 1000 / fps;
     const since = this.lastDraw < 0 ? interval : now - this.lastDraw;
     // small tolerance so a 30fps target lands on every 2nd 60Hz frame (or every 4th at 120Hz)

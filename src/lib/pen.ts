@@ -3,6 +3,8 @@ import { INK } from './palette';
 
 export type Pt = [number, number];
 
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+
 export interface Style {
   /** Outline colour. `null` = no outline. */
   stroke?: string | null;
@@ -56,7 +58,8 @@ export class Pen {
   constructor(public ctx: CanvasRenderingContext2D) {}
 
   setTime(ms: number) {
-    this.boil = Math.floor(ms / 150) % 4;
+    // "Reduce Motion" on: keep the hand-drawn wobble but stop it from boiling
+    this.boil = reducedMotion.matches ? 0 : Math.floor(ms / 150) % 4;
   }
 
   rng(seed: number) {
