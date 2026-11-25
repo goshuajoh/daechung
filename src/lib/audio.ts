@@ -19,6 +19,18 @@ class Sfx {
     document.addEventListener('visibilitychange', () => {
       if (document.hidden && this.ctx?.state === 'running') void this.ctx.suspend();
     });
+    // iOS only starts an AudioContext inside a tap. Muted players never trigger a sound, so
+    // unlock it on the first tap anyway: Keep the Beat times itself with the audio clock.
+    const unlock = () => {
+      window.removeEventListener('pointerdown', unlock, true);
+      window.removeEventListener('keydown', unlock, true);
+      try {
+        this.ensure();
+        this.scheduleIdle(); // and let it go back to sleep if nothing plays
+      } catch { /* no Web Audio */ }
+    };
+    window.addEventListener('pointerdown', unlock, true);
+    window.addEventListener('keydown', unlock, true);
   }
 
   /** Must be called from a user gesture at least once. */

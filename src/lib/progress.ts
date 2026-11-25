@@ -24,6 +24,8 @@ interface Progress {
   top: Record<string, number>;
   /** rounds scored 100, ever */
   perfects: number;
+  /** "show tutorials again": plays per game at that moment (tutorials count from here) */
+  tutFrom: Record<string, number>;
   /** stamp id → when it was earned */
   stamps: Record<string, number>;
   /** nap pillows: each one covers a missed day so the streak survives */
@@ -32,7 +34,7 @@ interface Progress {
   seenAt: number;
 }
 
-const fresh = (): Progress => ({ plays: {}, hist: {}, xp: 0, hat: 'none', body: 'white', streak: { last: 0, count: 0, best: 0 }, days: {}, name: '', hints: {}, stamps: {}, seenAt: 0, top: {}, pillows: 0, perfects: 0 });
+const fresh = (): Progress => ({ plays: {}, hist: {}, xp: 0, hat: 'none', body: 'white', streak: { last: 0, count: 0, best: 0 }, days: {}, name: '', hints: {}, stamps: {}, seenAt: 0, top: {}, pillows: 0, perfects: 0, tutFrom: {} });
 
 let cache: Progress | null = null;
 
@@ -71,7 +73,8 @@ export function plays(gameId: string, who = '') {
 }
 
 export function tier(gameId: string, who = ''): Tier {
-  const n = plays(gameId, who);
+  // counted from the last "show tutorials again", so the reset doesn't wipe real play counts
+  const n = plays(gameId, who) - (load().tutFrom?.[`${who}|${gameId}`] ?? 0);
   return n === 0 ? 'new' : n < 3 ? 'learning' : 'pro';
 }
 
@@ -123,7 +126,8 @@ export function bestStreak() {
 }
 
 export function forgetTutorials() {
-  load().plays = {};
+  const p = load();
+  p.tutFrom = { ...p.plays };
   save();
   try {
     localStorage.removeItem('daechung:learned');

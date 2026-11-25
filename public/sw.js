@@ -18,11 +18,25 @@ self.addEventListener('install', (e) => {
   );
 });
 
+const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
+
 self.addEventListener('activate', (e) => {
   e.waitUntil(
-    caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('daechung-') && k !== CACHE).map((k) => caches.delete(k))))
-      .then(() => self.clients.claim()),
+    (async () => {
+      const fresh = await caches.open(CACHE);
+      for (const k of await caches.keys()) {
+        if (!k.startsWith('daechung-') || k === CACHE) continue;
+        // fonts don't change between deploys: carry them over so offline keeps its look
+        const old = await caches.open(k);
+        for (const req of await old.keys()) {
+          if (!FONT_HOSTS.includes(new URL(req.url).host)) continue;
+          const res = await old.match(req);
+          if (res) await fresh.put(req, res);
+        }
+        await caches.delete(k);
+      }
+      await self.clients.claim();
+    })(),
   );
 });
 

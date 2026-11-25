@@ -535,7 +535,7 @@ export function startSurvival(app: HTMLElement, games: GameDef[], exit: () => vo
       }
       // the moment you outlast the friend who sent the link
       if (rival && lives > 0 && i + 1 === rival.rounds + 1) {
-        shell.banner(`passed ${rival.name}!`);
+        shell.banner(`passed ${esc(rival.name)}!`);
         sfx.fanfare();
       }
       return lives <= 0;

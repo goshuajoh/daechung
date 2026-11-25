@@ -82,9 +82,37 @@ window.addEventListener('unhandledrejection', (e) => oops(e.reason));
 window.addEventListener('hashchange', route);
 // Canvas text needs the fonts loaded up front (the DOM alone won't trigger them in time).
 const fonts = Promise.all([document.fonts.load('20px Jua'), document.fonts.load('700 20px Gaegu'), document.fonts.load('20px Jua', '대충')]);
-Promise.race([fonts, new Promise((r) => setTimeout(r, 2500))]).finally(route);
+// blocked web fonts (content blockers, Lockdown Mode) must not count as a crash
+Promise.race([fonts.catch(() => {}), new Promise((r) => setTimeout(r, 2500))]).finally(route);
 
 // Offline + home-screen install (production only; the dev server shouldn't be cached).
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => void navigator.serviceWorker.register('./sw.js').catch(() => {}));
+  // On the very first visit the fonts load before the worker is in charge, so it never sees
+  // them. Once it takes over, fetch the font files this page actually used again, so they're
+  // cached for offline (they're CORS-enabled, so the cached copies serve later font loads).
+  navigator.serviceWorker.addEventListener('controllerchange', () => void cacheUsedFonts());
+}
+
+/** "U+0-FF, U+131" and "U+0000-00FF, U+0131" are the same range: compare as numbers. */
+const ranges = (s: string) =>
+  s.split(',').map((r) => r.trim().replace(/^u\+/i, '').split('-').map((h) => parseInt(h, 16)).join('-')).join(',');
+
+async function cacheUsedFonts() {
+  try {
+    const link = document.querySelector<HTMLLinkElement>('link[rel="stylesheet"][href*="fonts.googleapis.com"]');
+    if (!link) return;
+    const css = await (await fetch(link.href)).text();
+    const loaded = [...document.fonts].filter((f) => f.status === 'loaded');
+    const fam = (s: string) => s.replace(/["']/g, '').trim().toLowerCase();
+    for (const block of css.split('@font-face').slice(1)) {
+      const family = /font-family:\s*([^;]+);/.exec(block)?.[1];
+      const weight = (/font-weight:\s*([^;]+);/.exec(block)?.[1] ?? '400').trim();
+      const range = /unicode-range:\s*([^;]+);/.exec(block)?.[1];
+      const url = /url\(([^)]+)\)/.exec(block)?.[1]?.replace(/["']/g, '');
+      if (!family || !url) continue;
+      const used = loaded.some((f) => fam(f.family) === fam(family) && String(f.weight) === weight && (!range || ranges(f.unicodeRange) === ranges(range)));
+      if (used) void fetch(url).catch(() => {});
+    }
+  } catch { /* offline or blocked: nothing to cache */ }
 }

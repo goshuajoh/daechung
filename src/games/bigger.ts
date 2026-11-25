@@ -21,7 +21,15 @@ function unit(kind: Kind, seed: number): { pts: Pt[]; reach: number } {
   else if (kind === 'square') pts = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
   else if (kind === 'triangle') for (let i = 0; i < 3; i++) { const a = -Math.PI / 2 + (i / 3) * Math.PI * 2; pts.push([Math.cos(a), Math.sin(a) + 0.2]); }
   else if (kind === 'star') for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + (i / 10) * Math.PI * 2, r = i % 2 ? 0.48 : 1; pts.push([Math.cos(a) * r, Math.sin(a) * r]); }
-  else for (let i = 0; i < 9; i++) { const a = (i / 9) * Math.PI * 2, r = 0.75 + (((seed * 7 + i * 13) % 10) / 10) * 0.45; pts.push([Math.cos(a) * r, Math.sin(a) * r]); }
+  else {
+    // a smooth lumpy outline, sampled densely so the drawn curve and the measured area agree
+    const p1 = ((seed * 7) % 10) / 10 * Math.PI * 2, p2 = ((seed * 13) % 10) / 10 * Math.PI * 2;
+    for (let i = 0; i < 40; i++) {
+      const a = (i / 40) * Math.PI * 2;
+      const r = 1 + 0.16 * Math.sin(2 * a + p1) + 0.1 * Math.sin(3 * a + p2);
+      pts.push([Math.cos(a) * r, Math.sin(a) * r]);
+    }
+  }
   // shoelace area → normalise to 1
   let A = 0;
   for (let i = 0; i < pts.length; i++) { const [x1, y1] = pts[i], [x2, y2] = pts[(i + 1) % pts.length]; A += x1 * y2 - x2 * y1; }
@@ -44,15 +52,26 @@ function makePair(ratio: number, seed: number): Pair {
   return { a: side(0), b: side(1), bigger };
 }
 
+/** Split every edge into short steps, so the pen's smoothing can't bulge or round the shape. */
+function densify(pts: Pt[], step: number): Pt[] {
+  const out: Pt[] = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    const k = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / step));
+    for (let j = 0; j < k; j++) out.push([a[0] + ((b[0] - a[0]) * j) / k, a[1] + ((b[1] - a[1]) * j) / k]);
+  }
+  return out;
+}
+
 function drawSide(pen: Pen, s: Side, cx: number, cy: number, scale: number, seed: number, pop = 1) {
   const k = Math.sqrt(s.area) * scale * pop;
   const c = Math.cos(s.rot), sn = Math.sin(s.rot);
   // the unit circle has area 1, i.e. radius = reach (≈0.56), not 1
   if (s.kind === 'circle') pen.circle(cx, cy, k * s.shape.reach, { fill: s.color, seed, width: 3 });
   else {
+    // drawn outline = measured outline: dense points, a light wobble, nothing smoothed away
     const pts = s.shape.pts.map(([x, y]) => [cx + (x * c - y * sn) * k, cy + (x * sn + y * c) * k] as Pt);
-    if (s.kind === 'blob') pen.blob(pts, { fill: s.color, seed, width: 3 });
-    else pen.poly(pts, { fill: s.color, seed, width: 3, rough: 0.8 });
+    pen.blob(densify(pts, 7), { fill: s.color, seed, width: 3, rough: 0.45 });
   }
 }
 

@@ -265,6 +265,8 @@ export const beat: GameDef = {
 
       // ——— start ———
       await g.ready(plan.mode === 'keep' ? 'play the beat' : 'play');
+      // the beat runs on the audio clock: make sure it's ticking (still inside the tap, for iOS)
+      if (ctx.state !== 'running') await Promise.race([ctx.resume().catch(() => {}), g.wait(500)]);
       g.setMood(plan.mode === 'keep' ? 'listen' : 'focus');
       started = true;
       t0 = ctx.currentTime + 0.9;

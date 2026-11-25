@@ -118,7 +118,9 @@ export const dots: GameDef = {
     const n = randInt(lo, hi);
     const stage = g.stage;
     const top = 62;
-    const aspect = clamp((stage.w - 30) / Math.max(120, stage.h - top - 20), 0.5, 2.2);
+    // a fixed square field (letterboxed on wide screens), so a Daily's beans land in the
+    // same places on every device: the layout is part of the puzzle
+    const aspect = 1;
     const beans = scatter(n, aspect, clumpy);
     let phase: 'ready' | 'show' | 'hide' | 'guess' | 'count' = 'ready';
     let phaseAt = 0;

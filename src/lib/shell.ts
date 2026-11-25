@@ -264,7 +264,7 @@ export class Shell {
   commit() {
     this.committed = true;
   }
-  /** Set when "leave?" stopped a round: it's played again (fresh puzzle) if they stay. */
+  /** Set when "leave?" stopped a round: it is played again from the top if they stay. */
   private replay = false;
 
   /** Resolves at once (false), or once the player answers "keep playing" (true). */
@@ -792,15 +792,15 @@ export class Shell {
         await this.gate();
         if (this.timed) await this.briefing(game, i);
         let res!: RoundResult;
-        for (let again = 0; ; again++) {
+        for (;;) {
           // if "leave?" is (or was just) open, wait for the answer and count them in again;
           // nothing may await between this and play(), or a round could start behind the dialog
           while (await this.gate()) await this.goFlash();
           this.committed = false;
           this.timeLeft = null;
           this.currentGame = game;
-          // a replay gets a different puzzle, so peeking behind "leave?" doesn't help
-          seedRandom(seed == null ? null : (seed * 7919 + (i + 1) * 104729 + level + again * 7717) | 0);
+          // a replay is the same puzzle (no re-rolling a Daily for an easier one); input-locked rounds never replay
+          seedRandom(seed == null ? null : (seed * 7919 + (i + 1) * 104729 + level) | 0);
           stayLively();
           this.inRound = true;
           try {
@@ -823,7 +823,7 @@ export class Shell {
           this.look = undefined;
           this.setMood('idle');
           await this.gate();
-          this.say('from the top! (new puzzle)', 'happy');
+          this.say('from the top!', 'happy');
           await this.goFlash();
         }
         addPlay(game.id, this.who);
