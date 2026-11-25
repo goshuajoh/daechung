@@ -3,7 +3,7 @@ import { drawKongi } from './lib/kongi';
 import { el, esc, muteButton, type GameDef } from './lib/shell';
 import { icons } from './lib/icons';
 import { sfx } from './lib/audio';
-import { MAX_PILLOWS, allDays, bestStreak, body, hasStamp, hat, history, isNewStamp, levelOf, markStampsSeen, pillows, playerName, plays, setPlayerName, stampCount, streak, xp } from './lib/progress';
+import { MAX_PILLOWS, records, allDays, bestStreak, body, hasStamp, hat, history, isNewStamp, levelOf, markStampsSeen, pillows, playerName, plays, setPlayerName, stampCount, streak, xp } from './lib/progress';
 import { STAMPS, stampCanvas } from './lib/stamps';
 import { getBest } from './lib/store';
 import { today, RUN_LENGTH } from './modes';
@@ -63,6 +63,7 @@ export function renderProfile(app: HTMLElement, games: GameDef[], exit: () => vo
   const rounds = games.reduce((a, g) => a + history(g.id).length, 0);
   const top = known.length && rounds >= 3 ? known.sort((a, b) => b[0] - a[0])[0][1] : null;
   const days = allDays();
+  const rec = records();
 
   // from 4 weeks ago (or daily #1) up to today, then the rest of this row as "coming up"
   const first = Math.max(1, day.n - 27);
@@ -107,6 +108,14 @@ export function renderProfile(app: HTMLElement, games: GameDef[], exit: () => vo
           <button class="btn hat-btn"><span>change hat</span></button>
         </div>
       </div>
+      <div class="records">${[
+        [rec.bestDaily, 'best Daily'],
+        [getBest('run'), 'best Quick Run'],
+        [getBest('survival'), 'Survival rounds'],
+        [rec.perfects, 'perfect 100s'],
+        [rec.rounds, 'rounds played'],
+        [rec.dailies, 'Dailies played'],
+      ].map(([v, label]) => `<div><b>${v ?? '–'}</b><span>${label}</span></div>`).join('')}</div>
       <h3>your eyeball type</h3>
       <div class="me-type">${top == null ? '<b>still a mystery…</b><p>play a Daily and Kongi will figure you out.</p>' : `<b>${AXES[top].title}</b><p>${AXES[top].line}</p>`}</div>
       <div class="radar"></div>

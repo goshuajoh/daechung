@@ -22,6 +22,8 @@ interface Progress {
   hints: Record<string, 1>;
   /** gameId → best single-round accuracy ever (history only keeps the last 20) */
   top: Record<string, number>;
+  /** rounds scored 100, ever */
+  perfects: number;
   /** stamp id → when it was earned */
   stamps: Record<string, number>;
   /** nap pillows: each one covers a missed day so the streak survives */
@@ -30,7 +32,7 @@ interface Progress {
   seenAt: number;
 }
 
-const fresh = (): Progress => ({ plays: {}, hist: {}, xp: 0, hat: 'none', body: 'white', streak: { last: 0, count: 0, best: 0 }, days: {}, name: '', hints: {}, stamps: {}, seenAt: 0, top: {}, pillows: 0 });
+const fresh = (): Progress => ({ plays: {}, hist: {}, xp: 0, hat: 'none', body: 'white', streak: { last: 0, count: 0, best: 0 }, days: {}, name: '', hints: {}, stamps: {}, seenAt: 0, top: {}, pillows: 0, perfects: 0 });
 
 let cache: Progress | null = null;
 
@@ -90,7 +92,16 @@ export function recordScore(gameId: string, acc: number) {
   if (h.length > HIST) h.splice(0, h.length - HIST);
   p.top ??= {};
   p.top[gameId] = Math.max(p.top[gameId] ?? 0, Math.round(acc));
+  if (acc >= 100) p.perfects = (p.perfects ?? 0) + 1;
   save();
+}
+
+/** Lifetime numbers for the profile. */
+export function records() {
+  const p = load();
+  const rounds = Object.entries(p.plays).filter(([k]) => k.startsWith('|')).reduce((a, [, n]) => a + n, 0);
+  const days = Object.values(p.days);
+  return { rounds, perfects: p.perfects ?? 0, bestDaily: days.length ? Math.max(...days) : null, dailies: days.length };
 }
 
 /** Best round ever in a game (falls back to recent history for older saves). */
