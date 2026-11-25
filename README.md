@@ -27,10 +27,10 @@ In runs, each game scores up to **100 for accuracy + 20 speed bonus** (how much 
 Before every game there's an instruction card. How much it says depends on how many times you've played that game (per device, or per player name in Party):
 
 - **new**: looping demo with a cartoon hand plus three numbered steps. A free **practice** try is offered but never forced. It's untimed, doesn't count, and has training wheels: the live angle / % / time, a dashed circle to trace, the target colour pinned in the corner, beat guide rings.
-- **learning** (1–2 plays): the demo and one line, then it auto-starts after a 3-second bar (tap to go now).
+- **learning** (1–2 plays): the demo and one line, with **go!** and **practice** buttons.
 - **pro** (3+): a quick flash card with a "? how to play" button.
 
-On top of that, a hand points at what to touch if you stall, every target has a plain-words caption ("make an angle of", "fill the glass to"), and the timer bar has a clock and a seconds count. The very first timed card also explains it, and the first time you ever play a game its clock gets 40% longer. Results are in words ("a little off the middle", "you sped up", "it landed a bit past your flag") rather than pixels or BPM. Tapping back mid-run asks before throwing the run away, and the clock pauses while you decide.
+On top of that, a hand points at what to touch if you stall, every target has a plain-words caption ("make an angle of", "fill the glass to"), and the timer bar has a clock and a seconds count. The very first timed card also explains it, and the first time you ever play a game its clock gets 40% longer. Results are in words ("a little off the middle", "you sped up", "it landed a bit past your flag") rather than pixels or BPM. Tapping back (or the phone's back gesture) mid-run asks before throwing the run away, and the clock pauses while you decide. If a round was still waiting for your answer, "keep playing" restarts it from the top with a GO! (same puzzle, so a Daily can't be re-rolled); an answer you'd already locked in is kept.
 
 ### Why you come back tomorrow
 
@@ -40,10 +40,10 @@ On top of that, a hand points at what to touch if you stall, every target has a 
 - **Nap pillows**: every 5 days in a row earns a pillow (hold up to 2). Miss a day and Kongi naps on one for you, so the streak survives; the home screen warns you when today's Daily is the one that saves it.
 - **Challenge a friend**: after the Daily, "challenge friends" shares a picture of your result plus a link with your scores packed in. Your friend gets the same puzzles, sees your score after each game, and ends on a head-to-head with W/L per game. No server involved.
 - **Friends' scores**: every challenge link you open is remembered, so the Daily tile shows "friends today: Mina 812 · Josh 640", and after your run Kongi tells you who you beat. The Daily tile and finale also count down to the next daily.
-- **Stamp book (칭찬 도장)**: 19 hand-drawn rubber stamps to collect, like the praise stamps a Korean teacher puts in your notebook: first daily, bullseye (a 100), speedy, on fire (4 good rounds in a row), sharp eyes / human ruler (75% / 85% of a run's max), 3-, 7- and 30-day streaks, winner (beat a friend's link), pen pal (send one), party host, night owl, early bird, tourist (every game), all-rounder (90+ in every game), welcome back, survivor (10 rounds in Survival), and level 10. Each pops in with a stamp "thunk" once the results are revealed (never mid-round); the home screen says "new stamp!" until you look. Locked stamps show how to get them, so there's always a next goal.
-- **Your profile** (tap your level on the home screen): your "eyeball type" (Shape Whisperer, Ratio Ruler, Human Metronome, Physics Brain, Bean Counter or Steady Artist), a six-skill radar, a calendar of your dailies, the stamp book, per-game averages, your name and the hat closet.
+- **Stamp book (칭찬 도장)**: 19 hand-drawn rubber stamps to collect, like the praise stamps a Korean teacher puts in your notebook: first daily, bullseye (a 100), speedy, on fire (70+ four rounds in a row), sharp eyes / human ruler (900+ / 1020+ in a run), 3-, 7- and 30-day streaks, winner (beat a friend's link), pen pal (send one), party host, night owl, early bird, tourist (every game), all-rounder (90+ in every game), welcome back, survivor (10 rounds in Survival), and level 10. Each pops in with a stamp "thunk" once the results are revealed (never mid-round); the home screen says "new stamp!" until you look. Locked stamps show how to get them, so there's always a next goal.
+- **Your profile** (tap your level on the home screen): lifetime records (best Daily, best Quick Run, Survival rounds, perfect 100s, rounds and Dailies played), your nap pillows, your "eyeball type" (Shape Whisperer, Ratio Ruler, Human Metronome, Physics Brain, Bean Counter or Steady Artist), a six-skill radar, a calendar of your dailies, the stamp book, per-game averages, your name and the hat closet.
 - **Party**: the pass-the-phone screen shows the score to beat, and the results screen can share a podium picture with everyone's Kongi and scores.
-- **Juice**: scores count up, 95+ gets a PERFECT banner with a burst and a screen shake, and 70+ rounds in a row build a combo.
+- **Juice**: scores count up, 95+ gets a PERFECT banner with a burst and a screen shake, and 70+ rounds in a row build a combo. The result sticker tucks into the corner after a second so the answer underneath stays visible.
 
 ### Sound
 
@@ -90,8 +90,8 @@ Turn it on once in the repo: **Settings → Pages → Source: GitHub Actions**.
 No image assets and no emoji: everything is drawn in code.
 
 - `src/lib/pen.ts` is a small "wobbly pen" for canvas. Every shape is jittered with a seeded RNG that re-rolls about 7 times a second, so lines "boil" like a looping hand-drawn animation. Fills are offset from their outlines, like a slightly misregistered riso print.
-- `src/lib/kongi.ts` draws the mascot with that pen. Moods: idle, happy, cheer, wow, sad, focus, listen.
-- DOM bits (buttons, cards, speech bubble) get the same boil from an SVG `feTurbulence` filter that's re-seeded from JS.
+- `src/lib/kongi.ts` draws the mascot with that pen. Moods: idle, happy, cheer, wow, sad, focus, listen, sleepy.
+- DOM bits (buttons, cards, speech bubble) get a wobbly edge from a static SVG `feTurbulence` filter. (Re-seeding it to make them boil too made Safari re-render every filtered element several times a second.)
 - Sounds are synthesized with Web Audio in `src/lib/audio.ts`. There are no audio files.
 - Fonts: [Jua](https://fonts.google.com/specimen/Jua) and [Gaegu](https://fonts.google.com/specimen/Gaegu).
 
@@ -105,4 +105,4 @@ Every canvas shares one animation loop and has its own frame-rate cap: home art 
 
 ## Adding a game
 
-Make a `GameDef` (see `src/lib/shell.ts`) with a `thumb()` for the home card, `steps` + a `demo()` for the how-to card (`src/lib/hand.ts` has the pointing hand), and an async `play(shell, level)` that returns `{ score, detail }` for one challenge. Use `shell.lockIn(confirm, seconds)` (or `shell.clock(seconds)`) so it works on the countdown in runs, and draw randomness from `src/lib/rng.ts` so daily and party runs stay identical across players. Check `shell.tutorial` to switch on training wheels. Register it in `src/main.ts`; the modes in `src/modes.ts` / `src/party.ts` pick it up automatically. Set `since` to tomorrow's daily number so the new game doesn't reshuffle a daily people are already playing (challenge links compare round by round).
+Make a `GameDef` (see `src/lib/shell.ts`) with a one-word English `short` name for result tiles, a `thumb()` for the home card, `steps` + a `demo()` for the how-to card (`src/lib/hand.ts` has the pointing hand), and an async `play(shell, level)` that returns `{ score, detail }` for one challenge. Use `shell.lockIn(confirm, seconds)` (or `shell.clock(seconds)`) so it works on the countdown in runs; if your game takes input some other way, call `shell.commit()` the moment the answer is final, so "leave?" during the reveal keeps the answer instead of replaying the round. Draw randomness from `src/lib/rng.ts`, all of it before `play()`'s first `await`, so daily and party runs stay identical across players. Check `shell.tutorial` to switch on training wheels. Register it in `src/main.ts`; the modes in `src/modes.ts` / `src/party.ts` pick it up automatically. Set `since` to tomorrow's daily number so the new game doesn't reshuffle a daily people are already playing (challenge links compare round by round).
