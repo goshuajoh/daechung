@@ -33,7 +33,8 @@ On top of that, a hand points at what to touch if you stall, every target has a 
 
 ### Why you come back tomorrow
 
-- **XP & levels**: every point you score is XP. Levelling up unlocks hats for Kongi: ribbon, beanie, party hat, headphones, chef hat, flower crown, cap, crown, halo. Tap your level on the home screen to open the closet.
+- **XP & levels**: every point you score is XP. Levels 2–10 unlock hats for Kongi (ribbon, beanie, party hat, headphones, chef hat, flower crown, cap, crown, halo), and levels 11–15 unlock body colours (peach, mint, sky, lilac, banana). Change them in the closet on your profile.
+- **Streak rewards**: a 3-day Daily streak unlocks sunglasses and a 7-day streak a golden sprout, each with a little celebration.
 - **Daily streak**: a flame counter plus a 7-day strip on the Daily tile.
 - **Challenge a friend**: after the Daily, "challenge friends" shares a picture of your result plus a link with your scores packed in. Your friend gets the same puzzles, sees your score after each game, and ends on a head-to-head with W/L per game. No server involved.
 - **Friends' scores**: every challenge link you open is remembered, so the Daily tile shows "friends today: Mina 812 · Josh 640", and after your run Kongi tells you who you beat. The Daily tile and finale also count down to the next daily.
