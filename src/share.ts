@@ -89,7 +89,8 @@ function canvasFile(cv: HTMLCanvasElement, name = 'daechung.png'): File | null {
   }
 }
 
-export type ShareOutcome = 'shared' | 'copied' | 'cancelled' | 'failed';
+/** shared: share sheet · copied: text copied (+ picture saved) · saved: only the picture saved · failed: nothing worked */
+export type ShareOutcome = 'shared' | 'copied' | 'saved' | 'cancelled' | 'failed';
 
 /**
  * Share a picture + text (+ link) with the OS share sheet where possible, otherwise copy
@@ -116,14 +117,18 @@ export async function shareImage(cv: HTMLCanvasElement, text: string, link: stri
     await navigator.clipboard.writeText(full);
     copied = true;
   } catch { /* no clipboard access */ }
+  let saved = false;
   if (file) {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(file);
-    a.download = file.name;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    try {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(file);
+      a.download = file.name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      saved = true;
+    } catch { /* no downloads either */ }
   }
-  return copied ? 'copied' : 'failed';
+  return copied ? 'copied' : saved ? 'saved' : 'failed';
 }
 
 export const shareResult = (card: ShareCard, text: string, link: string) => shareImage(drawShareCard(card), text, link);

@@ -145,7 +145,7 @@ async function showLink(g: Shell, link: string) {
   const input = m.querySelector('input')!;
   input.addEventListener('focus', () => input.select());
   setTimeout(() => input.select(), 50);
-  g.say("couldn't open sharing here. press and hold the link to copy it!", 'happy');
+  g.say("couldn't open sharing here (the picture may have saved). press and hold the link to copy it!", 'happy');
   try {
     await g.choose(['done'], 0);
   } finally {
@@ -366,7 +366,7 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
         );
         if (res === 'copied') shell.say('link copied and picture saved! paste it in the group chat.', 'happy');
         else if (res === 'shared') shell.say('sent! now we wait…', 'cheer');
-        else if (res === 'failed') {
+        else if (res === 'failed' || res === 'saved') {
           try {
             await showLink(shell, link);
           } catch {

@@ -238,6 +238,7 @@ export function startParty(app: HTMLElement, games: GameDef[], exit: () => void)
         const text = `대충 party: ${ranked.map((p, i) => `${i + 1}. ${p.name} ${p.total}`).join(', ')}`;
         const res = await shareImage(drawPartyCard(ranked, n), text, `${location.origin}${location.pathname}`);
         if (res === 'copied') shareBtn.innerHTML = '<span>copied + saved!</span>';
+        else if (res === 'saved') shareBtn.innerHTML = '<span>picture saved!</span>';
         else if (res === 'failed') shareBtn.innerHTML = '<span>couldn\'t share here</span>';
       });
       root.querySelector('.again')!.addEventListener('click', () => (sfx.pop(), resolve('again')));
