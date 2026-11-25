@@ -4,15 +4,15 @@
 
 **Play: https://goshuajoh.github.io/daechung/**
 
-Fourteen tiny hand-drawn mini-games that test how good your eyeball is, hosted by **Kongi (콩이)**, a little bean-sprout mochi.
+Fifteen tiny hand-drawn mini-games that test how good your eyeball is, hosted by **Kongi (콩이)**, a little bean-sprout mochi.
 
 ![home screen](docs/preview-home.png)
 
-![all 14 mini-games mid-round on a phone](docs/preview-games.png)
+![the mini-games mid-round on a phone](docs/preview-games.png)
 
 ## Ways to play
 
-- **Daily 대충**: 10 of the 14 mini-games back to back, each on a countdown. The mix and the puzzles come from the daily number, so everyone gets the same run, which is what makes challenge links work. A friend's link from a day ahead or behind (timezones) still plays their puzzles.
+- **Daily 대충**: 10 of the 15 mini-games back to back, each on a countdown. The mix and the puzzles come from the daily number, so everyone gets the same run, which is what makes challenge links work. A friend's link from a day ahead or behind (timezones) still plays their puzzles.
 - **Quick Run**: same format, a random 10 every time.
 - **Party**: pass the phone. 2–8 players get the identical run (5 or 10 games), then there's a podium and a "closest eyeball per game" list.
 - **Practice**: any single game, 5 rounds that get harder, no clock.
@@ -65,6 +65,7 @@ Keep the Beat flashes the whole stage and pulses rings on every beat, so it work
 | **Halfway** 반 | Tap the exact middle of a squiggly road. Later roads hide extra wiggles in one half. |
 | **Bigger?** 더 큰 거 | Six quick-fire pairs of different shapes: tap the one with more area. |
 | **Tunnel** 터널 | A ball rolls into a tunnel at a steady speed. Tap when it's under the flag. |
+| **Seesaw** 시소 | Kongis of different sizes sit on a plank. Slide the pivot to where it balances. Weight goes with area, so a Kongi twice as wide is four times as heavy. |
 
 Best scores are saved in your browser.
 
@@ -102,4 +103,4 @@ Every canvas shares one animation loop and has its own frame-rate cap: home art 
 
 ## Adding a game
 
-Make a `GameDef` (see `src/lib/shell.ts`) with a `thumb()` for the home card, `steps` + a `demo()` for the how-to card (`src/lib/hand.ts` has the pointing hand), and an async `play(shell, level)` that returns `{ score, detail }` for one challenge. Use `shell.lockIn(confirm, seconds)` (or `shell.clock(seconds)`) so it works on the countdown in runs, and draw randomness from `src/lib/rng.ts` so daily and party runs stay identical across players. Check `shell.tutorial` to switch on training wheels. Register it in `src/main.ts`; the modes in `src/modes.ts` / `src/party.ts` pick it up automatically.
+Make a `GameDef` (see `src/lib/shell.ts`) with a `thumb()` for the home card, `steps` + a `demo()` for the how-to card (`src/lib/hand.ts` has the pointing hand), and an async `play(shell, level)` that returns `{ score, detail }` for one challenge. Use `shell.lockIn(confirm, seconds)` (or `shell.clock(seconds)`) so it works on the countdown in runs, and draw randomness from `src/lib/rng.ts` so daily and party runs stay identical across players. Check `shell.tutorial` to switch on training wheels. Register it in `src/main.ts`; the modes in `src/modes.ts` / `src/party.ts` pick it up automatically. Set `since` to tomorrow's daily number so the new game doesn't reshuffle a daily people are already playing (challenge links compare round by round).

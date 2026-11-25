@@ -18,10 +18,11 @@ import { center } from './games/center';
 import { color } from './games/color';
 import { brake } from './games/brake';
 import { halfway } from './games/halfway';
+import { seesaw } from './games/seesaw';
 import { bigger } from './games/bigger';
 import { tunnel } from './games/tunnel';
 
-export const games: GameDef[] = [angle, beat, cut, dots, trajectory, circle, stopwatch, pour, center, color, brake, halfway, bigger, tunnel];
+export const games: GameDef[] = [angle, beat, cut, dots, trajectory, circle, stopwatch, pour, center, color, brake, halfway, bigger, tunnel, seesaw];
 
 const app = document.getElementById('app')!;
 let cleanup: (() => void) | null = null;

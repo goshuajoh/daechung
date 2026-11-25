@@ -26,6 +26,8 @@ export interface GameDef {
   color: string;
   /** Has its own timing, so no countdown bar (speed bonus is flat). */
   untimed?: boolean;
+  /** First daily number this game can appear in, so adding a game never reshuffles a daily people are already playing. */
+  since?: number;
   /** Practice ranks: [minimum total out of 500, title], highest first. */
   ranks: [number, string][];
   thumb(pen: Pen, w: number, h: number, t: number): void;

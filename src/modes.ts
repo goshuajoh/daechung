@@ -251,7 +251,8 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
     const day = linkDay ? { n: linkDay, seed: dailySeed(linkDay) } : now;
     const isToday = day.n === now.n;
     const seed = kind === 'daily' ? day.seed : (Math.random() * 1e9) | 0;
-    const steps = buildRun(games, Math.min(RUN_LENGTH, games.length), seed);
+    const pool = kind === 'daily' ? games.filter((g) => (g.since ?? 0) <= day.n) : games;
+    const steps = buildRun(pool, Math.min(RUN_LENGTH, pool.length), seed);
     const label = kind === 'daily' ? `daily #${day.n}` : 'quick run';
     const rival: Challenge | null = linkDay ? pending : null;
     const color = kind === 'daily' ? BUTTER : LILAC;
