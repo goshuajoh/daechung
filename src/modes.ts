@@ -6,7 +6,7 @@ import { icons } from './lib/icons';
 import { seedRandom, shuffle } from './lib/rng';
 import { BUTTER, LILAC, WHITE } from './lib/palette';
 import { sfx } from './lib/audio';
-import { type LevelInfo, addXp, body, firstTime, hat, history, levelOf, playerName, plays, recordDaily, setBody, setHat, setPlayerName, xp } from './lib/progress';
+import { type LevelInfo, addXp, body, firstTime, hat, levelOf, topScore, playerName, plays, recordDaily, setBody, setHat, setPlayerName, xp } from './lib/progress';
 import { isIOS, standalone } from './install';
 import { bodyForLevel, hatForLevel, hatForStreak } from './lib/hats';
 import { challengeLink, friends, getPending, setPending, type Challenge } from './challenge';
@@ -126,7 +126,7 @@ function runStamps(games: GameDef[], ratio: number) {
   if (ratio >= 0.75) earn('great');
   if (ratio >= 0.85) earn('legend');
   if (games.every((g) => plays(g.id) > 0)) earn('tour');
-  if (games.every((g) => Math.max(0, ...history(g.id)) >= 90)) earn('ace');
+  if (games.every((g) => topScore(g.id) >= 90)) earn('ace');
 }
 
 /** Hitting a streak milestone for the first time unlocks a special hat. */
@@ -346,12 +346,7 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
               ? 'nicely eyeballed! now challenge a friend.'
               : 'very 대충. which is the point, honestly.',
     );
-    try {
-      await awardXp(shell, card, total);
-      if (streak?.firstToday) await streakReward(shell, streak.streak, streak.best);
-    } catch {
-      return void holdStamps(false);
-    }
+    // earned now (saved straight away), shown once the celebrations are over
     runStamps(games, ratio);
     if (kind === 'daily' && isToday) {
       earn('first');
@@ -366,6 +361,12 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
       if (streak.back) earn('back');
     }
     if (won) earn('rival');
+    try {
+      await awardXp(shell, card, total);
+      if (streak?.firstToday) await streakReward(shell, streak.streak, streak.best);
+    } catch {
+      return void holdStamps(false);
+    }
     holdStamps(false);
     // after (not before) the first daily, so it never stands between a new player and the game
     if (kind === 'daily' && isIOS() && !standalone() && firstTime('a2hs'))
@@ -396,7 +397,7 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
           kind === 'daily' ? `${text}\ncan you beat me? same puzzles:` : text,
           link,
         );
-        if (kind === 'daily' && res !== 'cancelled') earn('gift');
+        if (kind === 'daily' && (res === 'shared' || res === 'copied')) earn('gift');
         if (res === 'copied') shell.say('link copied and picture saved! paste it in the group chat.', 'happy');
         else if (res === 'shared') shell.say('sent! now we wait…', 'cheer');
         else if (res === 'failed' || res === 'saved') {

@@ -20,13 +20,15 @@ interface Progress {
   name: string;
   /** one-time hints already shown */
   hints: Record<string, 1>;
+  /** gameId → best single-round accuracy ever (history only keeps the last 20) */
+  top: Record<string, number>;
   /** stamp id → when it was earned */
   stamps: Record<string, number>;
   /** how many stamps the stamp book has shown (for the "new!" dot) */
   seen: number;
 }
 
-const fresh = (): Progress => ({ plays: {}, hist: {}, xp: 0, hat: 'none', body: 'white', streak: { last: 0, count: 0, best: 0 }, days: {}, name: '', hints: {}, stamps: {}, seen: 0 });
+const fresh = (): Progress => ({ plays: {}, hist: {}, xp: 0, hat: 'none', body: 'white', streak: { last: 0, count: 0, best: 0 }, days: {}, name: '', hints: {}, stamps: {}, seen: 0, top: {} });
 
 let cache: Progress | null = null;
 
@@ -78,7 +80,15 @@ export function recordScore(gameId: string, acc: number) {
   const h = (p.hist[gameId] ??= []);
   h.push(Math.round(acc));
   if (h.length > HIST) h.splice(0, h.length - HIST);
+  p.top ??= {};
+  p.top[gameId] = Math.max(p.top[gameId] ?? 0, Math.round(acc));
   save();
+}
+
+/** Best round ever in a game (falls back to recent history for older saves). */
+export function topScore(gameId: string) {
+  const p = load();
+  return Math.max(p.top?.[gameId] ?? 0, ...(p.hist[gameId] ?? [0]));
 }
 
 export function history(gameId: string): number[] {

@@ -221,7 +221,7 @@ export class Shell {
   }
 
   private onKey(e: KeyboardEvent) {
-    if (e.key !== 'Enter' || e.repeat) return;
+    if (e.key !== 'Enter' || e.repeat || this.leaveOpen) return;
     const b = this.actions.querySelector<HTMLButtonElement>('.btn.primary:not([disabled])');
     if (b) {
       e.preventDefault();
@@ -242,9 +242,20 @@ export class Shell {
     this.root.remove();
   }
 
+  /** True while "leave this run?" is open: the clock is frozen and the run waits between steps. */
+  private leaveOpen = false;
+  private stayers: (() => void)[] = [];
+
+  /** Resolves at once, or once the player answers "keep playing". */
+  private gate(): Promise<void> {
+    if (!this.leaveOpen) return Promise.resolve();
+    return this.until<void>((done) => void this.stayers.push(() => done()));
+  }
+
   /** "Leave this run?" — the clock pauses while you decide. */
   private confirmLeave() {
-    if (this.root.querySelector('.leave-card')) return;
+    if (this.leaveOpen) return;
+    this.leaveOpen = true;
     this.pauseClock();
     const m = el('div', 'leave-wrap', `<div class="leave-card" role="dialog" aria-label="leave this run?">
         <b>leave this run?</b><p>your score so far won't be saved.</p>
@@ -254,6 +265,8 @@ export class Shell {
     m.querySelector('.stay')!.addEventListener('click', () => {
       sfx.pop();
       m.remove();
+      this.leaveOpen = false;
+      this.stayers.splice(0).forEach((f) => f());
       this.resumeClock();
     });
     m.querySelector('.go')!.addEventListener('click', () => {
@@ -414,6 +427,7 @@ export class Shell {
     return new Promise<void>((resolve) => {
       this.clockDone = resolve;
       this.runClock();
+      if (this.leaveOpen) this.pauseClock();
     });
   }
 
@@ -696,7 +710,9 @@ export class Shell {
         this.look = undefined;
         this.setMood('idle');
         this.clearActions();
+        await this.gate();
         if (this.timed) await this.briefing(game, i);
+        await this.gate();
         this.timeLeft = null;
         this.currentGame = game;
         seedRandom(seed == null ? null : (seed * 7919 + (i + 1) * 104729 + level) | 0);
@@ -715,12 +731,14 @@ export class Shell {
         results.push({ game, acc, bonus, detail: res.detail });
         this.total += acc + bonus;
         this.bumpTotal(this.total);
-        await this.sticker(acc, bonus, res.detail, i === steps.length - 1, i);
+        // stamps first: leaving during the sticker shouldn't lose a 100
         if (!this.opts.player) {
           if (acc >= 100) earn('bullseye');
           if (bonus >= 18) earn('speedy');
-          if (this.combo >= 4) earn('combo');
+          if (acc >= 70 && this.combo + 1 >= 4) earn('combo'); // the sticker counts this round into the combo
         }
+        await this.sticker(acc, bonus, res.detail, i === steps.length - 1, i);
+        await this.gate();
       }
       this.setProgress(steps.length);
       return results;
