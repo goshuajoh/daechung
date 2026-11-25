@@ -15,22 +15,32 @@ class Sfx {
     try {
       this.muted = localStorage.getItem(KEY) === '1';
     } catch { /* storage blocked */ }
-    // switching apps / locking the phone: stop the audio hardware right away
+    // switching apps / locking the phone: stop the audio hardware right away,
+    // and wake it again on return if a game is using the audio clock
     document.addEventListener('visibilitychange', () => {
       if (document.hidden && this.ctx?.state === 'running') void this.ctx.suspend();
+      else if (!document.hidden && this.awake > 0 && this.ctx?.state === 'suspended') void this.ctx.resume();
     });
-    // iOS only starts an AudioContext inside a tap. Muted players never trigger a sound, so
-    // unlock it on the first tap anyway: Keep the Beat times itself with the audio clock.
+    // iOS only starts an AudioContext from a touchend / click (not touchstart or pointerdown).
+    // Muted players never trigger a sound, so unlock it on taps anyway (Keep the Beat times
+    // itself with the audio clock), and keep listening until it has really started.
+    const events = ['touchend', 'click', 'keydown'] as const;
     const unlock = () => {
-      window.removeEventListener('pointerdown', unlock, true);
-      window.removeEventListener('keydown', unlock, true);
+      let c: AudioContext;
       try {
-        this.ensure();
+        c = this.ensure();
+      } catch {
+        return; // no Web Audio at all
+      }
+      const done = () => {
+        if (c.state !== 'running') return;
+        events.forEach((ev) => window.removeEventListener(ev, unlock, true));
         this.scheduleIdle(); // and let it go back to sleep if nothing plays
-      } catch { /* no Web Audio */ }
+      };
+      if (c.state === 'running') done();
+      else void c.resume().then(done, () => {});
     };
-    window.addEventListener('pointerdown', unlock, true);
-    window.addEventListener('keydown', unlock, true);
+    events.forEach((ev) => window.addEventListener(ev, unlock, true));
   }
 
   /** Must be called from a user gesture at least once. */

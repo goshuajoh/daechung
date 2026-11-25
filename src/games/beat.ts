@@ -265,8 +265,24 @@ export const beat: GameDef = {
 
       // ——— start ———
       await g.ready(plan.mode === 'keep' ? 'play the beat' : 'play');
-      // the beat runs on the audio clock: make sure it's ticking (still inside the tap, for iOS)
+      // the beat runs on the audio clock: make sure it's ticking
       if (ctx.state !== 'running') await Promise.race([ctx.resume().catch(() => {}), g.wait(500)]);
+      if (ctx.state !== 'running') {
+        // iOS (e.g. sound muted, so nothing has started audio yet) only allows it from a tap
+        g.say('tap the drum to start the beat!', 'happy');
+        await g.until<void>((ok) => {
+          const go = () => void ctx.resume().then(() => ctx.state === 'running' && ok(), () => {});
+          stage.canvas.addEventListener('touchend', go);
+          stage.canvas.addEventListener('click', go);
+          window.addEventListener('keydown', go);
+          return () => {
+            stage.canvas.removeEventListener('touchend', go);
+            stage.canvas.removeEventListener('click', go);
+            window.removeEventListener('keydown', go);
+          };
+        });
+        g.say(plan.mode === 'keep' ? 'got it! now <b>listen</b>, then keep tapping.' : 'got it! count along…', 'listen');
+      }
       g.setMood(plan.mode === 'keep' ? 'listen' : 'focus');
       started = true;
       t0 = ctx.currentTime + 0.9;

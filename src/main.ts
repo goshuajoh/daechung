@@ -80,6 +80,8 @@ window.addEventListener('error', (e) => oops(e.error ?? e.message));
 window.addEventListener('unhandledrejection', (e) => oops(e.reason));
 
 window.addEventListener('hashchange', route);
+// reloaded on a back-guard entry (mid-run): step off it, or the next Back would do nothing
+if ((history.state as { dcGuard?: number } | null)?.dcGuard) history.back();
 // Canvas text needs the fonts loaded up front (the DOM alone won't trigger them in time).
 const fonts = Promise.all([document.fonts.load('20px Jua'), document.fonts.load('700 20px Gaegu'), document.fonts.load('20px Jua', '대충')]);
 // blocked web fonts (content blockers, Lockdown Mode) must not count as a crash
