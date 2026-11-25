@@ -13,7 +13,7 @@ import type { Pen, Pt } from './lib/pen';
 
 /** Six skills, each fed by the games that test it. */
 const AXES = [
-  { name: 'shapes', games: ['angle', 'center', 'bigger'], title: 'Shape Whisperer', line: 'angles and areas bow to you.' },
+  { name: 'shapes', games: ['angle', 'center', 'bigger', 'straighten'], title: 'Shape Whisperer', line: 'angles and areas bow to you.' },
   { name: 'proportion', games: ['cut', 'pour', 'halfway', 'seesaw'], title: 'Ratio Ruler', line: 'you could split a bill to the cent.' },
   { name: 'timing', games: ['beat', 'stopwatch'], title: 'Human Metronome', line: 'you don’t keep the beat, you are the beat.' },
   { name: 'motion', games: ['trajectory', 'brake', 'tunnel'], title: 'Physics Brain', line: 'you know where things are going before they do.' },

@@ -4,7 +4,7 @@
 
 **Play: https://goshuajoh.github.io/daechung/**
 
-Fifteen tiny hand-drawn mini-games that test how good your eyeball is, hosted by **Kongi (콩이)**, a little bean-sprout mochi.
+Sixteen tiny hand-drawn mini-games that test how good your eyeball is, hosted by **Kongi (콩이)**, a little bean-sprout mochi.
 
 ![home screen](docs/preview-home.png)
 
@@ -12,7 +12,7 @@ Fifteen tiny hand-drawn mini-games that test how good your eyeball is, hosted by
 
 ## Ways to play
 
-- **Daily 대충**: 10 of the 15 mini-games back to back, each on a countdown. The mix and the puzzles come from the daily number, so everyone gets the same run, which is what makes challenge links work. A friend's link from a day ahead or behind (timezones) still plays their puzzles.
+- **Daily 대충**: 10 of the 16 mini-games back to back, each on a countdown. The mix and the puzzles come from the daily number, so everyone gets the same run, which is what makes challenge links work. A friend's link from a day ahead or behind (timezones) still plays their puzzles.
 - **Quick Run**: same format, a random 10 every time.
 - **Party**: pass the phone. 2–8 players get the identical run (5 or 10 games), then there's a podium and a "closest eyeball per game" list.
 - **Survival**: 3 hearts. Rounds keep coming (every game once before any repeats, harder every 3 rounds) and any round under 50 breaks a heart. Your score is how many rounds you lasted; the share card shows the last ten, and its link challenges a friend ("Mina lasted 12 rounds"), with a "passed Mina!" banner the moment you outlast them.
@@ -68,6 +68,7 @@ Keep the Beat flashes the whole stage and pulses rings on every beat, so it work
 | **Bigger?** 더 큰 거 | Six quick-fire pairs of different shapes: tap the one with more area. |
 | **Tunnel** 터널 | A ball rolls into a tunnel at a steady speed. Tap when it's under the flag. |
 | **Seesaw** 시소 | Kongis of different sizes sit on a plank. Slide the pivot to where it balances. Weight goes with area, so a Kongi twice as wide is four times as heavy. |
+| **Straighten** 똑바로 | Kongi's portrait hangs crooked: drag it level. Slanted wallpaper and a tilted room bend your sense of level (the rod-and-frame and Zöllner illusions). |
 
 Best scores are saved in your browser.
 
