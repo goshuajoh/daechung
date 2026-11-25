@@ -758,6 +758,10 @@ button { font: inherit; color: inherit; }
 .week i.done { background: #f2879b; }
 .week i.today { transform: scale(1.3); box-shadow: 0 0 0 2px #fbf4e6, 0 0 0 4px var(--ink); }
 .week i.pre { opacity: .25; }
+.pals { font-size: 15px; line-height: 1.15; margin-bottom: 2px; }
+.mode .pals b { font-family: var(--display); font-weight: 400; font-size: 15px; display: inline; margin: 0; }
+.to-beat { font-size: 20px; background: var(--white); border: 2.4px dashed var(--ink); border-radius: 12px 14px 10px 13px; padding: 3px 12px; }
+.to-beat b { font-family: var(--display); font-weight: 400; }
 
 .closet-wrap { position: fixed; inset: 0; z-index: 50; background: rgba(59, 44, 40, .35); display: grid; place-items: center; padding: 16px; animation: enter .25s both; }
 .closet {
@@ -833,6 +837,32 @@ button { font: inherit; color: inherit; }
 .per-game strong { font-family: var(--display); font-weight: 400; text-align: right; }
 .per-game small { grid-column: 2 / -1; font-size: 14px; opacity: .55; margin-top: -2px; }
 
+
+/* ——— first visit + landscape ——— */
+.hero { position: relative; }
+.welcome {
+  position: relative; margin: -8px 0 22px 26px; max-width: 420px; padding: 8px 14px;
+  background: var(--white); border: 2.6px solid var(--ink); border-radius: 16px 18px 14px 17px;
+  font-size: 19px; line-height: 1.15; box-shadow: 4px 4px 0 #ffe08a;
+  animation: enter .5s .6s cubic-bezier(.2, 1.5, .4, 1) both;
+}
+.welcome b { font-family: var(--display); font-weight: 400; }
+.welcome::before {
+  content: ''; position: absolute; left: 34px; top: -9px; width: 14px; height: 14px;
+  background: var(--white); border-left: 2.6px solid var(--ink); border-top: 2.6px solid var(--ink);
+  transform: rotate(45deg);
+}
+.mode.beckon { animation: enter .5s .05s cubic-bezier(.2, 1.4, .4, 1) both, nudge 1.8s 1.4s ease-in-out 4; }
+.rotate-note { display: none; }
+@media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+  .rotate-note {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    position: fixed; inset: 0; z-index: 100; background: var(--paper); text-align: center;
+  }
+  .rotate-note b { font-family: var(--display); font-weight: 400; font-size: 30px; }
+  .rotate-note span { font-size: 20px; opacity: .6; }
+}
+
 /* ——— phones (kept last so it wins) ——— */
 @media (max-width: 560px) {
   .home { padding: calc(10px + env(safe-area-inset-top)) 16px calc(30px + env(safe-area-inset-bottom)); }
@@ -843,6 +873,7 @@ button { font: inherit; color: inherit; }
   .me { margin-top: 6px; gap: 6px 10px; }
   .lvl i { width: 64px; }
   .lvl span { display: none; }
+  .welcome { margin: -4px 0 16px 8px; font-size: 17px; }
   .roman { font-size: 16px; margin-top: 2px; }
   .tag { font-size: 18px; }
   .modes { grid-template-columns: 1fr 1fr; gap: 20px 16px; margin-bottom: 32px; }

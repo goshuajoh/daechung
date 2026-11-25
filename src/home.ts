@@ -1,14 +1,14 @@
 import { Stage } from './lib/stage';
 import { drawKongi, type Mood } from './lib/kongi';
 import { getBest } from './lib/store';
-import { dayScore, forgetTutorials, hat, levelOf, streak, xp } from './lib/progress';
-import { getPending } from './challenge';
+import { dayScore, firstTime, forgetTutorials, hat, levelOf, streak, xp } from './lib/progress';
+import { friends, getPending } from './challenge';
 import { closet } from './closet';
 import { canPrompt, isIOS, onInstallChange, promptInstall, standalone } from './install';
 import { icons } from './lib/icons';
 import { esc, muteButton, type GameDef } from './lib/shell';
 import { sfx } from './lib/audio';
-import { RUN_LENGTH, today } from './modes';
+import { RUN_LENGTH, nextDailyIn, today } from './modes';
 import { BERRY, BUTTER, INK, LILAC, PINK, WHITE } from './lib/palette';
 import type { Pen } from './lib/pen';
 
@@ -58,6 +58,9 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
   const streakNow = streak(day.n);
   const pending = getPending();
   const challenge = pending && Math.abs(pending.day - day.n) <= 1 ? pending : null;
+  const pals = friends(day.n);
+  // first visit ever: Kongi says hi and points at the Daily
+  const welcome = !challenge && firstTime('welcome');
   // last 7 dailies: played or not
   const week = Array.from({ length: 7 }, (_, k) => day.n - 6 + k)
     .map((n) => `<i class="${n === day.n ? 'today ' : ''}${n < 1 ? 'pre' : dayScore(n) != null ? 'done' : ''}"></i>`)
@@ -79,16 +82,18 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
         </div>
       </div>
     </header>
+    ${welcome ? `<div class="welcome" role="note">hi! I'm <b>Kongi</b>. new here? tap today's <b>Daily</b> below to start. it teaches you as you go!</div>` : ''}
     ${challenge ? `<button class="challenge-ribbon" data-go="daily">${icons.flame}<span><b>${esc(challenge.name)}</b> challenged you: <b>${challenge.total}</b> on daily #${challenge.day}. <u>beat it!</u></span></button>` : ''}
     <div class="modes">
-      <button class="mode m-daily" style="--c:${BUTTER};--tilt:-1deg" data-go="daily">
+      <button class="mode m-daily${welcome ? ' beckon' : ''}" style="--c:${BUTTER};--tilt:-1deg" data-go="daily">
         <div class="mode-art"></div>
         <div class="mode-text">
           <small>daily #${day.n}</small>
           <b>Daily 대충</b>
           <p>${RUN_LENGTH} mini-games against the clock. Same ones for everyone today.</p>
           <span class="week" aria-label="last 7 days">${week}</span>
-          <span class="best">${dailyBest == null ? 'not played today!' : `today: <b>${dailyBest}</b>`}</span>
+          ${pals.length ? `<span class="pals">friends today: ${pals.slice(0, 3).map((f) => `<b>${esc(f.name)}</b> ${f.total}`).join(' · ')}</span>` : ''}
+          <span class="best">${dailyBest == null ? 'not played today!' : `today: <b>${dailyBest}</b> · next in <span class="next-in">${nextDailyIn()}</span>`}</span>
         </div>
       </button>
       <button class="mode m-run" style="--c:${LILAC};--tilt:1.2deg" data-go="run">
@@ -209,7 +214,14 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
     });
   });
 
+  // keep the "next daily in…" countdown honest while the home screen is open
+  const tick = window.setInterval(() => {
+    const el = root.querySelector('.next-in');
+    if (el) el.textContent = nextDailyIn();
+  }, 30000);
+
   return () => {
+    clearInterval(tick);
     offInstall();
     stages.forEach((s) => s.destroy());
     document.querySelector<HTMLButtonElement>('.closet .done')?.click();

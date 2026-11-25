@@ -144,12 +144,14 @@ export function startParty(app: HTMLElement, games: GameDef[], exit: () => void)
   /* ——— "pass the phone to …" ——— */
   const pass = (p: Player, i: number) =>
     new Promise<void>((resolve) => {
+      const leader = players.filter((q) => q.total != null).sort((a, b) => (b.total ?? 0) - (a.total ?? 0))[0];
       const root = screen(app, 'pass', `${topbar('Party', `${i + 1} of ${players.length}`)}
         <div class="pass-body">
           <div class="pass-kongi"></div>
           <p>pass the phone to</p>
           <h2>${esc(p.name)}</h2>
           <button class="btn primary"><span>I'm ${esc(p.name)} — go!</span></button>
+          ${leader ? `<div class="to-beat">score to beat: <b>${esc(leader.name)}</b> ${leader.total}</div>` : ''}
           <small>${count} mini-games · each one on a timer</small>
         </div>`, exit);
       root.style.setProperty('--pc', p.body);

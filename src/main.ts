@@ -4,7 +4,8 @@ import type { GameDef } from './lib/shell';
 import { startPractice, startRun } from './modes';
 import { startParty } from './party';
 import { renderProfile } from './profile';
-import { decodeChallenge, setPending } from './challenge';
+import { decodeChallenge, rememberFriend, setPending } from './challenge';
+import { playerName } from './lib/progress';
 import { angle } from './games/angle';
 import { beat } from './games/beat';
 import { cut } from './games/cut';
@@ -34,7 +35,11 @@ function route() {
   const code = new URLSearchParams(query ?? '').get('c');
   if (code) {
     const c = decodeChallenge(code);
-    if (c) setPending(c);
+    if (c) {
+      setPending(c);
+      // opening your own link shouldn't list you as your own friend
+      if (c.name !== playerName()) rememberFriend(c);
+    }
     history.replaceState(null, '', `${location.pathname}#/${path}`);
   }
   window.scrollTo(0, 0);

@@ -9,7 +9,7 @@ import { sfx } from './lib/audio';
 import { addXp, firstTime, hat, levelOf, playerName, recordDaily, setHat, setPlayerName, xp, type LevelInfo } from './lib/progress';
 import { isIOS, standalone } from './install';
 import { hatForLevel } from './lib/hats';
-import { challengeLink, getPending, setPending, type Challenge } from './challenge';
+import { challengeLink, friends, getPending, setPending, type Challenge } from './challenge';
 import { shareResult } from './share';
 
 /* ——— shared bits ——— */
@@ -21,6 +21,14 @@ export function today() {
   const n = Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - LAUNCH) / 864e5) + 1;
   const day = Math.max(1, n);
   return { n: day, seed: dailySeed(day) };
+}
+
+/** Time until the next daily unlocks (local midnight), e.g. "7h 12m". */
+export function nextDailyIn(): string {
+  const d = new Date();
+  const mins = Math.max(1, Math.ceil((new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime() - d.getTime()) / 60000));
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return h ? `${h}h ${m}m` : `${m}m`;
 }
 
 /** The puzzles come from the daily *number*, so a friend a timezone away can still play yours. */
@@ -267,6 +275,8 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
     const streak = kind === 'daily' && isToday ? recordDaily(day.n, total) : null;
     if (pending) setPending(null);
     const won = rival ? total > rival.total : false;
+    // friends whose challenge links for this day you've opened, and you outscored
+    const beat = kind === 'daily' ? friends(day.n).filter((f) => f.total < total && f.name !== rival?.name) : [];
     const head = rival
       ? `<div class="vs"><span>you <b>${total}</b></span><i>vs</i><span>${esc(rival.name)} <b>${rival.total}</b></span></div>`
       : '';
@@ -279,7 +289,7 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
       ${head}
       ${tiles(results, rival?.scores)}
       ${xpBar(levelPreview(), total)}
-      <div class="final-best">${isBest ? '<em>new best!</em>' : `best: ${best}`}</div>`);
+      <div class="final-best">${isBest ? '<em>new best!</em>' : `best: ${best}`}${kind === 'daily' && isToday ? ` · next daily in ${nextDailyIn()}` : ''}</div>`);
     shell.countUp(card.querySelector('.final-total b')!, total);
     shell.confetti(rival ? (won ? 1 : 0.3) : ratio);
     if (rival) shell.banner(won ? 'YOU WIN!' : total === rival.total ? 'TIE!' : 'SO CLOSE…');
@@ -289,6 +299,8 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
         ? won
           ? `you beat <b>${esc(rival.name)}</b>! send it back so they can try again.`
           : `${esc(rival.name)} wins this time. rematch tomorrow?`
+        : beat.length
+          ? `you beat <b>${beat.map((f) => esc(f.name)).join(', ')}</b> today!${streak && streak.streak > 1 ? ` and that's ${streak.streak} days in a row.` : ''}`
         : streak && streak.firstToday && streak.streak > 1
           ? `<b>${streak.streak} days in a row!</b> see you tomorrow?`
           : ratio >= 0.8

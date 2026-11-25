@@ -61,3 +61,27 @@ export function getPending(): Challenge | null {
   } catch { /* ignore */ }
   return pending;
 }
+
+/* ——— friends' dailies: every challenge link you open is remembered ——— */
+const FKEY = 'daechung:friends';
+export interface FriendScore { name: string; day: number; total: number }
+
+export function friends(day?: number): FriendScore[] {
+  try {
+    const all = JSON.parse(localStorage.getItem(FKEY) || '[]') as FriendScore[];
+    return (day == null ? all : all.filter((f) => f.day === day)).sort((a, b) => b.total - a.total);
+  } catch {
+    return [];
+  }
+}
+
+export function rememberFriend(c: Challenge) {
+  try {
+    const all = friends().filter((f) => !(f.name === c.name && f.day === c.day));
+    const prev = friends().find((f) => f.name === c.name && f.day === c.day);
+    all.push({ name: c.name, day: c.day, total: Math.max(c.total, prev?.total ?? 0) });
+    // keep the newest 60
+    all.sort((a, b) => b.day - a.day);
+    localStorage.setItem(FKEY, JSON.stringify(all.slice(0, 60)));
+  } catch { /* ignore */ }
+}
