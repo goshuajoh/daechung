@@ -846,6 +846,17 @@ button { font: inherit; color: inherit; }
 .per-game small { grid-column: 2 / -1; font-size: 14px; opacity: .55; margin-top: -2px; }
 
 
+/* ——— error safety net ——— */
+.oops {
+  position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); z-index: 200;
+  width: min(320px, calc(100% - 32px)); transform: translateX(-50%);
+  background: var(--white); border: 3px solid var(--ink); border-radius: var(--wobble);
+  padding: 12px 16px; text-align: center; box-shadow: 6px 6px 0 #f2879b;
+  animation: enter .4s cubic-bezier(.2, 1.4, .4, 1) both;
+}
+.oops b { font-family: var(--display); font-weight: 400; font-size: 22px; }
+.oops p { margin: 2px 0 10px; font-size: 18px; }
+
 /* ——— first visit + landscape ——— */
 .hero { position: relative; }
 .welcome {

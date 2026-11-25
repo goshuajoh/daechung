@@ -56,6 +56,27 @@ function route() {
 // Note: DOM doodle borders use a *static* SVG wobble filter. Re-seeding it every
 // frame made Safari re-render every filtered element ~7x/sec (CPU-only filters).
 
+// Safety net: if anything unexpected throws, offer a way out instead of a frozen screen.
+let oopsShown = false;
+function oops(err: unknown) {
+  if (err instanceof DOMException && err.name === 'AbortError') return; // leaving a screen, not a bug
+  console.error(err);
+  if (oopsShown) return;
+  oopsShown = true;
+  const box = document.createElement('div');
+  box.className = 'oops';
+  box.innerHTML = `<b>oops, Kongi tripped.</b><p>something went wrong on this screen.</p><button class="btn primary"><span>back home</span></button>`;
+  box.querySelector('button')!.addEventListener('click', () => {
+    box.remove();
+    oopsShown = false;
+    if (location.hash) location.hash = '';
+    else route();
+  });
+  document.body.appendChild(box);
+}
+window.addEventListener('error', (e) => oops(e.error ?? e.message));
+window.addEventListener('unhandledrejection', (e) => oops(e.reason));
+
 window.addEventListener('hashchange', route);
 // Canvas text needs the fonts loaded up front (the DOM alone won't trigger them in time).
 const fonts = Promise.all([document.fonts.load('20px Jua'), document.fonts.load('700 20px Gaegu'), document.fonts.load('20px Jua', '대충')]);
