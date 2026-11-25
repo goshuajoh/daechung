@@ -11,6 +11,7 @@ export interface ShareCard {
   results: StepResult[];
   streak: number;
   hat: string;
+  body?: string;
   name: string;
   rival?: { name: string; total: number } | null;
 }
@@ -40,7 +41,7 @@ export function drawShareCard(c: ShareCard): HTMLCanvasElement {
   if (c.streak > 1) pen.text(`${c.streak}-day streak`, W - 130, 214, { size: 34, font: 'gaegu', color: BERRY, align: 'right' });
 
   // Kongi + score
-  drawKongi(pen, 290, 560, 300, 'cheer', 0.25, { hat: c.hat });
+  drawKongi(pen, 290, 560, 300, 'cheer', 0.25, { hat: c.hat, body: c.body });
   pen.text(String(c.total), 760, 390, { size: 190 });
   pen.text(`/ ${c.max}`, 760, 500, { size: 50, alpha: 0.5 });
   if (c.name) pen.text(`by ${c.name}`, W - 130, c.streak > 1 ? 262 : 214, { size: 34, font: 'gaegu', alpha: 0.7, align: 'right' });

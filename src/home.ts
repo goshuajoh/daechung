@@ -1,7 +1,7 @@
 import { Stage } from './lib/stage';
 import { drawKongi, type Mood } from './lib/kongi';
 import { getBest } from './lib/store';
-import { dayScore, firstTime, forgetTutorials, hat, levelOf, streak, xp } from './lib/progress';
+import { body, dayScore, firstTime, forgetTutorials, hat, levelOf, streak, xp } from './lib/progress';
 import { friends, getPending } from './challenge';
 import { closet } from './closet';
 import { canPrompt, isIOS, onInstallChange, promptInstall, standalone } from './install';
@@ -174,7 +174,7 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
     // late at night Kongi dozes off (tap to wake it for a moment)
     const hr = new Date().getHours();
     if (t > moodUntil) mood = hr >= 23 || hr < 6 ? 'sleepy' : Math.floor(t / 5) % 3 === 2 ? 'idle' : 'happy';
-    drawKongi(pen, w / 2, h - 10, Math.min(w * 0.66, h * 0.66), mood, t, { hat: hat() });
+    drawKongi(pen, w / 2, h - 10, Math.min(w * 0.66, h * 0.66), mood, t, { hat: hat(), body: body() });
   }, 15);
   const openCloset = () => closet(() => (mood = 'cheer', moodUntil = kongi.time + 1.6));
   root.querySelector('.lvl')!.addEventListener('click', () => {

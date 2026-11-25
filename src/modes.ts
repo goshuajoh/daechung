@@ -6,9 +6,9 @@ import { icons } from './lib/icons';
 import { seedRandom, shuffle } from './lib/rng';
 import { BUTTER, LILAC, WHITE } from './lib/palette';
 import { sfx } from './lib/audio';
-import { addXp, firstTime, hat, levelOf, playerName, recordDaily, setHat, setPlayerName, xp, type LevelInfo } from './lib/progress';
+import { type LevelInfo, addXp, body, firstTime, hat, levelOf, playerName, recordDaily, setBody, setHat, setPlayerName, xp } from './lib/progress';
 import { isIOS, standalone } from './install';
-import { hatForLevel } from './lib/hats';
+import { bodyForLevel, hatForLevel, hatForStreak } from './lib/hats';
 import { challengeLink, friends, getPending, setPending, type Challenge } from './challenge';
 import { shareResult } from './share';
 
@@ -96,23 +96,46 @@ async function awardXp(g: Shell, card: HTMLElement, gain: number) {
     void bar.offsetWidth;
     bar.style.transition = '';
     const unlocked = hatForLevel(lv);
-    const m = el('div', 'levelup', `<small>level up!</small><b>Lv ${lv}</b><div class="lu-kongi"></div><p>${unlocked ? `new hat unlocked: <b>${unlocked.name}</b>` : 'keep going, more hats ahead!'}</p>`);
+    const colour = bodyForLevel(lv);
+    const m = el('div', 'levelup', `<small>level up!</small><b>Lv ${lv}</b><div class="lu-kongi"></div><p>${
+      unlocked ? `new hat unlocked: <b>${unlocked.name}</b>` : colour ? `new colour unlocked: <b>${colour.name}</b>` : 'keep going!'
+    }</p>`);
     g.overlay.appendChild(m);
     const st = new Stage(m.querySelector<HTMLElement>('.lu-kongi')!, 'lu-canvas', { fps: 24 });
-    st.draw = (pen, w, h, t) => drawKongi(pen, w / 2, h - 6, Math.min(w * 0.55, h * 0.8), 'cheer', t, { hat: unlocked?.id ?? hat() });
+    st.draw = (pen, w, h, t) => drawKongi(pen, w / 2, h - 6, Math.min(w * 0.55, h * 0.8), 'cheer', t, { hat: unlocked?.id ?? hat(), body: colour?.color ?? body() });
     sfx.fanfare();
     g.burst(g.stage.w / 2, g.stage.h * 0.4, 40);
     g.setMood('cheer');
-    g.say(unlocked ? `level ${lv}! I get a <b>${unlocked.name}</b>?! for me?!` : `level ${lv}!`);
+    g.say(unlocked ? `level ${lv}! I get a <b>${unlocked.name}</b>?! for me?!` : colour ? `level ${lv}! I can be <b>${colour.name}</b> now?!` : `level ${lv}!`);
     try {
-      const i = await g.choose(unlocked ? ['wear it!', 'later'] : ['yay!'], 0);
+      const i = await g.choose(unlocked || colour ? ['wear it!', 'later'] : ['yay!'], 0);
       if (unlocked && i === 0) setHat(unlocked.id);
+      if (colour && i === 0) setBody(colour.id);
     } finally {
       st.destroy();
       m.remove();
     }
   }
   bar.style.width = `${(after.into / after.need) * 100}%`;
+}
+
+/** Hitting a streak milestone for the first time unlocks a special hat. */
+async function streakReward(g: Shell, days: number, best: number) {
+  const reward = hatForStreak(days);
+  if (!reward || best > days) return; // already earned on an earlier, longer streak
+  const m = el('div', 'levelup', `<small>${days}-day streak!</small><b>${icons.flame}</b><div class="lu-kongi"></div><p>streak reward: <b>${reward.name}</b></p>`);
+  g.overlay.appendChild(m);
+  const st = new Stage(m.querySelector<HTMLElement>('.lu-kongi')!, 'lu-canvas', { fps: 24 });
+  st.draw = (pen, w, h, t) => drawKongi(pen, w / 2, h - 6, Math.min(w * 0.55, h * 0.8), 'cheer', t, { hat: reward.id, body: body() });
+  sfx.fanfare();
+  g.burst(g.stage.w / 2, g.stage.h * 0.4, 40);
+  g.say(`${days} days in a row! that earns you the <b>${reward.name}</b>.`, 'cheer');
+  try {
+    if ((await g.choose(['wear it!', 'later'], 0)) === 0) setHat(reward.id);
+  } finally {
+    st.destroy();
+    m.remove();
+  }
 }
 
 /** Sharing and copying both failed: show the link so it can be copied by hand. */
@@ -311,6 +334,7 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
     );
     try {
       await awardXp(shell, card, total);
+      if (streak?.firstToday) await streakReward(shell, streak.streak, streak.best);
     } catch {
       return;
     }
@@ -336,7 +360,7 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
             ? challengeLink({ name: name || 'a friend', day: day.n, total, scores: results.map((r) => r.acc + r.bonus) })
             : `${location.origin}${location.pathname}`;
         const res = await shareResult(
-          { title: label, total, max, rank: runRank(ratio), results, streak: streak?.streak ?? 0, hat: hat(), name, rival: rival ? { name: rival.name, total: rival.total } : null },
+          { title: label, total, max, rank: runRank(ratio), results, streak: streak?.streak ?? 0, hat: hat(), body: body(), name, rival: rival ? { name: rival.name, total: rival.total } : null },
           kind === 'daily' ? `${text}\ncan you beat me? same puzzles:` : text,
           link,
         );

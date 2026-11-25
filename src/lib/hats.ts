@@ -9,6 +9,10 @@ export interface Hat {
   id: string;
   name: string;
   level: number;
+  /** Unlocked by a daily streak of this many days instead of by level. */
+  streak?: number;
+  /** Drawn in front of the face (glasses) instead of on the head. */
+  front?: boolean;
   /** Draw the sprout on top of the hat (it pokes through), or hide it. */
   sprout: 'over' | 'hidden';
   /** Raise the sprout base by this fraction of W (e.g. it sticks out of a beanie). */
@@ -168,8 +172,61 @@ export const HATS: Hat[] = [
       }
     },
   },
+  {
+    id: 'shades',
+    name: 'sunglasses',
+    level: 99,
+    streak: 3,
+    sprout: 'over',
+    front: true,
+    draw(pen, x, y, W) {
+      const ey = y + W * 0.47, dx = W * 0.165;
+      for (const s of [-1, 1]) {
+        pen.rrect(x + s * dx - W * 0.085, ey - W * 0.06, W * 0.17, W * 0.12, W * 0.05, { fill: INK, width: lw(W), seed: 1130 + s, rough: 0.3, shift: [0, 0] });
+        pen.line(x + s * dx - W * 0.05, ey - W * 0.03, x + s * dx - W * 0.01, ey - W * 0.045, { stroke: WHITE, width: lw(W) * 0.9, seed: 1133 + s });
+      }
+      pen.curve([[x - dx + W * 0.085, ey - W * 0.03], [x, ey - W * 0.05], [x + dx - W * 0.085, ey - W * 0.03]], { width: lw(W), seed: 1135, rough: 0.2 });
+    },
+  },
+  {
+    id: 'golden',
+    name: 'golden sprout',
+    level: 99,
+    streak: 7,
+    sprout: 'hidden',
+    draw(pen, x, y, W, t) {
+      const sway = Math.sin(t * 2.2) * 0.16;
+      const base: Pt = [x + W * 0.03, y + 2];
+      const L = W * 0.22;
+      const tip: Pt = [base[0] + Math.sin(sway) * L, base[1] - Math.cos(sway) * L];
+      pen.curve([base, [base[0] + W * 0.02, base[1] - L * 0.5], tip], { width: lw(W), seed: 1140, rough: 0.4 });
+      for (const [dir, size, seed] of [[-1, 0.19, 1141], [1, 0.16, 1142]] as const) {
+        const a = -Math.PI / 2 + sway + dir * 0.95, c = Math.cos(a), s = Math.sin(a), z = W * size;
+        const pts: Pt[] = [[0, 0], [z * 0.4, -z * 0.3], [z, 0], [z * 0.4, z * 0.3]];
+        pen.blob(pts.map(([px, py]) => [tip[0] + px * c - py * s, tip[1] + px * s + py * c] as Pt), { fill: '#ffd24d', width: lw(W) * 0.85, seed, rough: 0.5 });
+      }
+      const tw = (Math.sin(t * 3) + 1) / 2;
+      pen.star(tip[0] + W * 0.18, tip[1] - W * 0.05, W * (0.03 + tw * 0.03), { fill: WHITE, width: 1.4, seed: 1143 }, t);
+      pen.star(tip[0] - W * 0.2, tip[1] + W * 0.02, W * (0.025 + (1 - tw) * 0.025), { fill: '#ffd24d', width: 1.4, seed: 1144 }, -t);
+    },
+  },
 ];
 
 export const hatById = (id: string | undefined) => HATS.find((h) => h.id === id) ?? HATS[0];
 /** The hat (if any) unlocked by reaching exactly this level. */
 export const hatForLevel = (level: number) => HATS.find((h) => h.level === level && h.id !== 'none') ?? null;
+export const hatForStreak = (days: number) => HATS.find((h) => h.streak === days) ?? null;
+export const hatUnlocked = (h: Hat, level: number, bestStreak: number) => (h.streak ? bestStreak >= h.streak : level >= h.level);
+export const lockLabel = (h: Hat) => (h.streak ? `${h.streak}-day streak` : `Lv ${h.level}`);
+
+/** Kongi body colours, unlocked after the last hat (levels 11+). */
+export const BODIES = [
+  { id: 'white', name: 'mochi', color: '#fffdf7', level: 1 },
+  { id: 'peach', name: 'peach', color: '#ffe0cf', level: 11 },
+  { id: 'mint', name: 'mint', color: '#d6f1df', level: 12 },
+  { id: 'sky', name: 'sky', color: '#d6e8fa', level: 13 },
+  { id: 'lilac', name: 'lilac', color: '#e7dcfa', level: 14 },
+  { id: 'butter', name: 'banana', color: '#fff0bd', level: 15 },
+];
+export const bodyById = (id: string | undefined) => BODIES.find((b) => b.id === id) ?? BODIES[0];
+export const bodyForLevel = (level: number) => BODIES.find((b) => b.level === level && b.id !== 'white') ?? null;

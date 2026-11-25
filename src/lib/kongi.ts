@@ -106,7 +106,7 @@ export function drawKongi(pen: Pen, x: number, y: number, W: number, mood: Mood,
 
   // ——— hat & sprout ———
   const hatDef = hatById(o.hat);
-  hatDef.draw(pen, x, by - ryT, W, t);
+  if (!hatDef.front) hatDef.draw(pen, x, by - ryT, W, t);
   const sway = Math.sin(t * 2.2) * 0.16 + (mood === 'cheer' ? Math.sin(t * 14) * 0.18 : 0) - (mood === 'sad' ? 0.5 : mood === 'sleepy' ? 0.35 : 0);
   const base: Pt = [x + bw * 0.06, by - ryT + lw * 0.6 - (hatDef.lift ?? 0) * W];
   const L = W * 0.2;
@@ -186,6 +186,8 @@ export function drawKongi(pen: Pen, x: number, y: number, W: number, mood: Mood,
       { width: lw * 0.9, rough: 0.25, seed: 983 },
     );
   }
+
+  if (hatDef.front) hatDef.draw(pen, x + look[0] * W * 0.07, by - ryT + look[1] * W * 0.04, W, t);
 
   // zzz
   if (mood === 'sleepy') {

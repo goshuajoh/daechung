@@ -1,3 +1,4 @@
+import { bodyById } from './hats';
 /**
  * Everything that makes people come back: experience per game, XP & level,
  * daily streak, unlocked hats. All local to this device.
@@ -12,6 +13,7 @@ interface Progress {
   hist: Record<string, number[]>;
   xp: number;
   hat: string;
+  body: string;
   streak: { last: number; count: number; best: number };
   /** daily number → best score that day */
   days: Record<number, number>;
@@ -20,7 +22,7 @@ interface Progress {
   hints: Record<string, 1>;
 }
 
-const fresh = (): Progress => ({ plays: {}, hist: {}, xp: 0, hat: 'none', streak: { last: 0, count: 0, best: 0 }, days: {}, name: '', hints: {} });
+const fresh = (): Progress => ({ plays: {}, hist: {}, xp: 0, hat: 'none', body: 'white', streak: { last: 0, count: 0, best: 0 }, days: {}, name: '', hints: {} });
 
 let cache: Progress | null = null;
 
@@ -135,6 +137,19 @@ export function addXp(n: number) {
 
 export function hat() {
   return load().hat;
+}
+
+export function body() {
+  return bodyById(load().body).color;
+}
+
+export function bodyId() {
+  return load().body;
+}
+
+export function setBody(id: string) {
+  load().body = id;
+  save();
 }
 
 export function setHat(id: string) {

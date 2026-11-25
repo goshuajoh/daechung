@@ -1,7 +1,7 @@
 import { Stage, stayLively } from './stage';
 import { drawKongi, type Mood } from './kongi';
 import { sfx } from './audio';
-import { addPlay, firstTime, hat, recordScore, tier, type Tier } from './progress';
+import { type Tier, addPlay, body, firstTime, hat, recordScore, tier } from './progress';
 import { icons } from './icons';
 import { clamp, pick, rand, seedRandom } from './rng';
 import { BLUSH, BUTTER, LILAC, MINT, PASTELS, PEACH, SKY } from './palette';
@@ -193,7 +193,7 @@ export class Shell {
     this.kongi = new Stage($('.kongi-slot'), 'kongi-mini', { fps: 15 });
     this.kongi.draw = (pen, w, h, t, dt) => {
       this.bop = Math.max(0, this.bop - dt * 5);
-      drawKongi(pen, w / 2, h - 6, Math.min(w * 0.68, h * 0.74), this.mood, t, { look: this.look, bop: this.bop, body: opts.player?.body, hat: opts.player ? undefined : hat() });
+      drawKongi(pen, w / 2, h - 6, Math.min(w * 0.68, h * 0.74), this.mood, t, { look: this.look, bop: this.bop, body: opts.player ? opts.player.body : body(), hat: opts.player ? undefined : hat() });
     };
 
     this.onKey = this.onKey.bind(this);

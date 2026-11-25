@@ -782,6 +782,14 @@ button { font: inherit; color: inherit; }
 .hat[disabled] { cursor: not-allowed; opacity: .55; }
 .hat-art { width: 76px; height: 70px; }
 .hat-art canvas { width: 100%; height: 100%; display: block; }
+.closet-sub { margin: 4px 0 8px !important; font-family: var(--display); font-size: 18px !important; }
+.bodies { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 14px; }
+.body-chip { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 8px; cursor: pointer; font: inherit; color: inherit; background: var(--paper); border: 2.4px solid var(--ink); border-radius: 12px 14px 10px 13px; }
+.body-chip i { width: 30px; height: 26px; border-radius: 50% 50% 46% 46% / 60% 60% 40% 40%; background: var(--bc); border: 2.4px solid var(--ink); }
+.body-chip em { font-style: normal; font-family: var(--display); font-size: 12px; }
+.body-chip.on { background: #ffe08a; transform: rotate(-3deg); }
+.body-chip[disabled] { opacity: .5; cursor: not-allowed; }
+.levelup > b svg { width: 54px; height: 54px; }
 .hat em { font-style: normal; font-family: var(--display); font-size: 13px; line-height: 1.1; }
 
 

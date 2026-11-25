@@ -3,7 +3,7 @@ import { drawKongi } from './lib/kongi';
 import { el, esc, muteButton, type GameDef } from './lib/shell';
 import { icons } from './lib/icons';
 import { sfx } from './lib/audio';
-import { allDays, bestStreak, hat, history, levelOf, playerName, plays, setPlayerName, streak, xp } from './lib/progress';
+import { allDays, bestStreak, body, hat, history, levelOf, playerName, plays, setPlayerName, streak, xp } from './lib/progress';
 import { getBest } from './lib/store';
 import { today, RUN_LENGTH } from './modes';
 import { closet } from './closet';
@@ -124,7 +124,7 @@ export function renderProfile(app: HTMLElement, games: GameDef[], exit: () => vo
 
   const stages: Stage[] = [];
   const k = new Stage(root.querySelector<HTMLElement>('.me-kongi')!, 'me-kongi-canvas', { fps: 15 });
-  k.draw = (pen, w, h, t) => drawKongi(pen, w / 2, h - 6, Math.min(w * 0.7, h * 0.72), 'happy', t, { hat: hat() });
+  k.draw = (pen, w, h, t) => drawKongi(pen, w / 2, h - 6, Math.min(w * 0.7, h * 0.72), 'happy', t, { hat: hat(), body: body() });
   stages.push(k);
   const r = new Stage(root.querySelector<HTMLElement>('.radar')!, 'radar-canvas', { fps: 8 });
   r.draw = (pen, w, h, t) => drawRadar(pen, w, h, t, vals);
