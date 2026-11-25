@@ -41,10 +41,10 @@ function makeRoad(level: number): Road {
     const seg = randInt(0, n - 2);
     const a = ctrl[seg], b = ctrl[seg + 1];
     const extra: Pt[] = [];
-    const k = 3 + level;
+    const k = level >= 3 ? 4 : 3;
     for (let j = 1; j < k; j++) {
       const f = j / k;
-      extra.push([lerp(a[0], b[0], f), lerp(a[1], b[1], f) + (j % 2 ? 1 : -1) * (0.08 + level * 0.02)]);
+      extra.push([lerp(a[0], b[0], f), lerp(a[1], b[1], f) + (j % 2 ? 1 : -1) * (0.12 + level * 0.02)]);
     }
     ctrl.splice(seg + 1, 0, ...extra);
   }
@@ -212,7 +212,7 @@ export const halfway: GameDef = {
       const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
       if (!d) return;
       e.preventDefault();
-      s = clamp((s ?? 0.5) + d * (e.shiftKey ? 0.05 : 0.005), 0, 1);
+      s = clamp((s ?? 0) + d * (e.shiftKey ? 0.05 : 0.005), 0, 1);
       confirm.el.disabled = false;
     };
     canvas.addEventListener('pointerdown', down);

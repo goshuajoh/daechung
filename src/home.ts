@@ -53,14 +53,14 @@ function drawTrio(pen: Pen, w: number, h: number, t: number) {
 /** Home screen: hero, the three ways to play, then practice tiles. Returns a cleanup fn. */
 export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: string) => void): () => void {
   const day = today();
-  const dailyBest = getBest(`daily-${day.n}`);
+  const dailyBest = dayScore(day.n);
   const lv = levelOf(xp());
   const streakNow = streak(day.n);
   const pending = getPending();
   const challenge = pending && Math.abs(pending.day - day.n) <= 1 ? pending : null;
   const pals = friends(day.n);
   // first visit ever: Kongi says hi and points at the Daily
-  const welcome = !challenge && firstTime('welcome');
+  const welcome = !challenge && xp() === 0 && firstTime('welcome');
   // last 7 dailies: played or not
   const week = Array.from({ length: 7 }, (_, k) => day.n - 6 + k)
     .map((n) => `<i class="${n === day.n ? 'today ' : ''}${n < 1 ? 'pre' : dayScore(n) != null ? 'done' : ''}"></i>`)
@@ -217,13 +217,19 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
   });
 
   // keep the "next daily in…" countdown honest while the home screen is open
+  const rolledOver = () => today().n !== day.n;
+  const refresh = () => window.dispatchEvent(new HashChangeEvent('hashchange')); // router re-renders home
   const tick = window.setInterval(() => {
+    if (rolledOver()) return refresh();
     const el = root.querySelector('.next-in');
     if (el) el.textContent = nextDailyIn();
   }, 30000);
+  const onVisible = () => !document.hidden && rolledOver() && refresh();
+  document.addEventListener('visibilitychange', onVisible);
 
   return () => {
     clearInterval(tick);
+    document.removeEventListener('visibilitychange', onVisible);
     offInstall();
     stages.forEach((s) => s.destroy());
     document.querySelector<HTMLButtonElement>('.closet .done')?.click();

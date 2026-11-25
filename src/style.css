@@ -854,7 +854,7 @@ button { font: inherit; color: inherit; }
 }
 .mode.beckon { animation: enter .5s .05s cubic-bezier(.2, 1.4, .4, 1) both, nudge 1.8s 1.4s ease-in-out 4; }
 .rotate-note { display: none; }
-@media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+@media (orientation: landscape) and (min-aspect-ratio: 3/2) and (max-height: 500px) and (pointer: coarse) {
   .rotate-note {
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
     position: fixed; inset: 0; z-index: 100; background: var(--paper); text-align: center;

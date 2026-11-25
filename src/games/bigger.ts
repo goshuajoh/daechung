@@ -47,7 +47,8 @@ function makePair(ratio: number, seed: number): Pair {
 function drawSide(pen: Pen, s: Side, cx: number, cy: number, scale: number, seed: number, pop = 1) {
   const k = Math.sqrt(s.area) * scale * pop;
   const c = Math.cos(s.rot), sn = Math.sin(s.rot);
-  if (s.kind === 'circle') pen.circle(cx, cy, k, { fill: s.color, seed, width: 3 });
+  // the unit circle has area 1, i.e. radius = reach (≈0.56), not 1
+  if (s.kind === 'circle') pen.circle(cx, cy, k * s.shape.reach, { fill: s.color, seed, width: 3 });
   else {
     const pts = s.shape.pts.map(([x, y]) => [cx + (x * c - y * sn) * k, cy + (x * sn + y * c) * k] as Pt);
     if (s.kind === 'blob') pen.blob(pts, { fill: s.color, seed, width: 3 });
@@ -155,6 +156,7 @@ export const bigger: GameDef = {
 
     const canvas = stage.canvas;
     let busy = false;
+    let advance = 0;
     const choose = (side: 0 | 1) => {
       if (busy || i >= count) return;
       const p = pairs[i];
@@ -165,7 +167,7 @@ export const bigger: GameDef = {
       else sfx.boop();
       g.bop = 1;
       busy = true;
-      setTimeout(() => {
+      advance = window.setTimeout(() => {
         busy = false;
         i++;
         shownAt = stage.time;
@@ -195,6 +197,7 @@ export const bigger: GameDef = {
         g.clock(count * 2.2).then(() => true),
       ]);
     } finally {
+      clearTimeout(advance);
       g.stopClock();
       canvas.removeEventListener('pointerdown', down);
       window.removeEventListener('keydown', key);

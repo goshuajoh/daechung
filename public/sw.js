@@ -7,8 +7,15 @@ const ASSETS = /*__ASSETS__*/ [];
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './favicon.svg', ...ASSETS];
 
 self.addEventListener('install', (e) => {
-  self.skipWaiting();
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(CORE)).catch(() => {}));
+  // No catch: if precaching fails, this worker doesn't install and the previous one
+  // (with its complete cache) keeps serving. cache: 'reload' skips the HTTP cache, so a
+  // deploy within the CDN max-age can't store the previous build's index.html.
+  e.waitUntil(
+    caches
+      .open(CACHE)
+      .then((c) => c.addAll(CORE.map((u) => new Request(u, { cache: 'reload' }))))
+      .then(() => self.skipWaiting()),
+  );
 });
 
 self.addEventListener('activate', (e) => {
@@ -29,7 +36,7 @@ self.addEventListener('fetch', (e) => {
         .then((res) => {
           if (res.ok) {
             const copy = res.clone();
-            caches.open(CACHE).then((c) => c.put('./index.html', copy));
+            e.waitUntil(caches.open(CACHE).then((c) => c.put('./index.html', copy)));
           }
           return res;
         })
@@ -46,7 +53,7 @@ self.addEventListener('fetch', (e) => {
         fetch(req).then((res) => {
           if (res.ok || res.type === 'opaque') {
             const copy = res.clone();
-            caches.open(CACHE).then((c) => c.put(req, copy));
+            e.waitUntil(caches.open(CACHE).then((c) => c.put(req, copy)));
           }
           return res;
         }),

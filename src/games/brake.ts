@@ -124,7 +124,7 @@ export const brake: GameDef = {
     g.say(g.tutorial ? 'tap anywhere to brake. the <b>ghost car</b> shows where you\'d stop if you braked right now!' : 'tap anywhere to <b>brake</b>. stop the bumper on the line!', 'focus');
 
     stage.draw = (pen, w, h, t) => {
-      const roadY = h * 0.72, len = Math.min(w * 0.22, 100);
+      const roadY = h * 0.72, len = Math.min(w * 0.22, 160);
       const lineX = w * lineK;
       drawRoad(pen, w, roadY, lineX);
       const x = pos(t) * w;
@@ -144,7 +144,7 @@ export const brake: GameDef = {
       if (state === 'drive' && t - t0 > 0.6 && t - t0 < 2.4) drawHand(pen, w * 0.5, h * 0.3, { press: Math.sin(t * 8) * 0.5 + 0.5, alpha: 0.8 });
       if (doneAt) {
         const pop = easeOutBack(clamp((t - doneAt) / 0.4, 0, 1));
-        const off = Math.round((x - lineX) / len * 100) / 100;
+        const off = Math.round(((x - lineX) / w / 0.22) * 100) / 100;
         pen.line(Math.min(x, lineX), roadY + 40, Math.max(x, lineX), roadY + 40, { stroke: BERRY, width: 3, seed: 1560 });
         pen.text(Math.abs(off) < 0.02 ? 'right on it!' : `${Math.abs(off).toFixed(2)} cars ${off > 0 ? 'over' : 'short'}`, (x + lineX) / 2, roadY + 62, { size: Math.max(1, 20 * pop), outline: WHITE });
       }
@@ -186,12 +186,14 @@ export const brake: GameDef = {
     state = braked ? 'done' : state;
     doneAt = stage.time;
     const finalX = pos(stage.time);
-    const len = Math.min(stage.w * 0.22, 100) / stage.w;
-    const err = Math.abs(finalX - lineK) / len; // in car lengths
+    // score in stage widths so phones and desktops get the same window;
+    // "car lengths" in the text use the phone-sized car (0.22 widths)
+    const errW = Math.abs(finalX - lineK);
+    const err = errW / 0.22;
     if (finalX > lineK) sfx.thud();
     await g.wait(900);
     if (!braked) return { score: 0, detail: 'you never braked! the car drove off' };
-    const score = 100 * Math.pow(Math.max(0, 1 - err / 1.1), 1.3);
+    const score = 100 * Math.pow(Math.max(0, 1 - errW / 0.24), 1.3);
     return { score, detail: err < 0.03 ? 'parked <b>perfectly</b> on the line!' : `stopped <b>${err.toFixed(2)}</b> car lengths ${finalX > lineK ? 'past' : 'short of'} the line` };
   },
 };

@@ -185,7 +185,8 @@ export class Stage {
   render(now: number): number {
     if (!this._draw || !this.onScreen || this.w < 2 || this.h < 2) return Infinity;
     const active = now < this.activeUntil;
-    const calm = now - lastInput > IDLE_AFTER || reduced.matches;
+    // stages that can boost (the game stage) keep their normal rate under Reduce Motion
+    const calm = now - lastInput > IDLE_AFTER || (reduced.matches && this.activeFps === this.fps);
     const fps = active ? this.activeFps : calm ? Math.min(this.fps, IDLE_FPS) : this.fps;
     const interval = 1000 / fps;
     const since = this.lastDraw < 0 ? interval : now - this.lastDraw;

@@ -38,7 +38,21 @@ export function decodeChallenge(code: string): Challenge | null {
 }
 
 export function challengeLink(c: Challenge): string {
-  return `${location.origin}${location.pathname}#/daily?c=${encodeChallenge(c)}`;
+  const code = encodeChallenge(c);
+  try {
+    const mine: string[] = JSON.parse(localStorage.getItem('daechung:mine') || '[]');
+    if (!mine.includes(code)) localStorage.setItem('daechung:mine', JSON.stringify([...mine, code].slice(-30)));
+  } catch { /* ignore */ }
+  return `${location.origin}${location.pathname}#/daily?c=${code}`;
+}
+
+/** True for a link this device created (so opening it yourself doesn't make you your own friend). */
+export function isMine(code: string): boolean {
+  try {
+    return (JSON.parse(localStorage.getItem('daechung:mine') || '[]') as string[]).includes(code);
+  } catch {
+    return false;
+  }
 }
 
 /** The challenge someone opened a link for (kept until they finish that daily). */

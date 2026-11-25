@@ -184,7 +184,7 @@ export function startParty(app: HTMLElement, games: GameDef[], exit: () => void)
     g.countUp(card.querySelector('.final-total b')!, p.total);
     g.confetti(p.total / (steps.length * 120));
     g.setMood('happy');
-    g.say(next ? `no peeking at the score, ${esc(next.name)}!` : 'everyone has played… drumroll please.');
+    g.say(next ? `${esc(next.name)}, you're up next!` : 'everyone has played… drumroll please.');
     try {
       await g.button(next ? `pass to ${esc(next.name)}` : 'see who won!');
     } catch {

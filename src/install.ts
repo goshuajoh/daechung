@@ -29,10 +29,15 @@ export async function promptInstall() {
   if (!deferred) return false;
   const d = deferred;
   deferred = null;
-  await d.prompt();
-  const { outcome } = await d.userChoice;
-  listeners.forEach((fn) => fn());
-  return outcome === 'accepted';
+  try {
+    await d.prompt();
+    const { outcome } = await d.userChoice;
+    return outcome === 'accepted';
+  } catch {
+    return false;
+  } finally {
+    listeners.forEach((fn) => fn());
+  }
 }
 
 /** Re-render something when install availability changes. Returns an unsubscribe fn. */
