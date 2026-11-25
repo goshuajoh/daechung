@@ -10,7 +10,7 @@ export function closet(onPick: () => void = () => {}) {
   const best = bestStreak();
   const m = document.createElement('div');
   m.className = 'closet-wrap';
-  m.innerHTML = `<div class="closet" role="dialog" aria-label="Kongi's closet">
+  m.innerHTML = `<div class="closet" role="dialog" aria-modal="true" aria-label="Kongi's closet">
       <b>Kongi's closet</b>
       <p>level up and keep your streak to unlock more. you're <b>Lv ${lv}</b>.</p>
       <div class="hats">${HATS.map((h) => {
@@ -60,10 +60,20 @@ export function closet(onPick: () => void = () => {}) {
       onPick();
     }),
   );
+  const back = document.activeElement as HTMLElement | null;
+  const esc = (e: KeyboardEvent) => {
+    if (e.key !== 'Escape') return;
+    e.preventDefault();
+    close();
+  };
   const close = () => {
+    window.removeEventListener('keydown', esc, true);
     stages.forEach((s) => s.destroy());
     m.remove();
+    back?.focus?.();
   };
+  window.addEventListener('keydown', esc, true);
+  m.querySelector<HTMLButtonElement>('.hat.on, .hat')?.focus();
   m.querySelector('.done')!.addEventListener('click', () => {
     sfx.click();
     close();
