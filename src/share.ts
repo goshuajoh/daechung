@@ -16,6 +16,8 @@ export interface ShareCard {
   rival?: { name: string; total: number } | null;
   /** Shown under the big number instead of "/ max" (survival: "rounds"). */
   unit?: string;
+  /** Survival: tiles show accuracy only, and rounds under this are faded (they broke a heart). */
+  accOnly?: number;
 }
 
 /** A 4:5 result card for group chats, drawn with the same wobbly pen as the game. */
@@ -62,10 +64,14 @@ export function drawShareCard(c: ShareCard): HTMLCanvasElement {
   // at most two rows: a long survival run shows its last ten rounds
   c.results.slice(-10).forEach((r, i) => {
     const x = x0 + (i % cols) * (tw + gap), y = y0 + Math.floor(i / cols) * (th + gap);
+    const faded = c.accOnly != null && r.acc < c.accOnly;
+    ctx.save();
+    if (faded) ctx.globalAlpha = 0.45;
     pen.rrect(x, y, tw, th, 26, { fill: r.game.color, width: 5, seed: 10 + i, shift: [8, 8] });
-    pen.text(String(r.acc + r.bonus), x + tw / 2, y + 74, { size: 66 });
+    pen.text(String(c.accOnly != null ? r.acc : r.acc + r.bonus), x + tw / 2, y + 74, { size: 66 });
     pen.text(r.game.short, x + tw / 2, y + 134, { size: 30, font: 'gaegu' });
     if (r.acc >= 90) pen.star(x + tw - 22, y + 22, 20, { fill: WHITE, width: 4, seed: 30 + i }, 0.2);
+    ctx.restore();
   });
 
   if (c.rival) {

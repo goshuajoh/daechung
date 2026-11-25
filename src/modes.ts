@@ -63,13 +63,14 @@ const levelPreview = () => levelOf(xp());
 export const sum = (r: StepResult[]) => r.reduce((a, s) => a + s.acc + s.bonus, 0);
 
 /** Wordle-ish grid of coloured score tiles (also used on the share image). */
-export function tiles(results: StepResult[], rival?: number[] | null) {
+/** Result tiles. `accOnly` (survival): show accuracy, and fade rounds under it (they broke a heart). */
+export function tiles(results: StepResult[], rival?: number[] | null, accOnly?: number) {
   return `<div class="tiles">${results
     .map((r, i) => {
-      const pts = r.acc + r.bonus;
+      const pts = accOnly != null ? r.acc : r.acc + r.bonus;
       const vs = rival?.[i];
       const mark = vs == null ? '' : `<i class="${pts > vs ? 'win' : pts < vs ? 'lose' : 'tie'}">${pts > vs ? 'W' : pts < vs ? 'L' : '='}</i>`;
-      return `<div class="tile${r.acc >= 90 ? ' star' : ''}" style="--c:${r.game.color};--d:${i * 70}ms" title="${r.game.name}: ${r.acc} + ${r.bonus} speed"><b>${pts}</b><span>${r.game.short}</span>${mark}</div>`;
+      return `<div class="tile${r.acc >= 90 ? ' star' : ''}${accOnly != null && r.acc < accOnly ? ' broke' : ''}" style="--c:${r.game.color};--d:${i * 70}ms" title="${r.game.name}: ${r.acc} + ${r.bonus} speed"><b>${pts}</b><span>${r.game.short}</span>${mark}</div>`;
     })
     .join('')}</div>`;
 }
@@ -528,16 +529,22 @@ export function startSurvival(app: HTMLElement, games: GameDef[], exit: () => vo
     let lives = LIVES;
     holdStamps(true);
     const results = await shell.playSteps(steps, null, (r, i) => {
+      const notes: string[] = [];
       if (r.acc < SURVIVE_MIN) {
         lives--;
         shell.setLives(lives, true);
         sfx.boop();
+        // the score that counts is accuracy (the speed bonus doesn't save a heart)
+        notes.push(lives > 0 ? `<b>${r.acc} is under ${SURVIVE_MIN}: a heart broke!</b> ${lives} left.` : `<b>${r.acc} is under ${SURVIVE_MIN}: out of hearts!</b>`);
+        if (lives <= 0) shell.banner('OUT OF HEARTS');
       }
       // the moment you outlast the friend who sent the link
-      if (rival && lives > 0 && i + 1 === rival.rounds + 1) {
+      if (rival && i + 1 === rival.rounds + 1) {
         shell.banner(`passed ${esc(rival.name)}!`);
         sfx.fanfare();
+        notes.push(`that's more rounds than <b>${esc(rival.name)}</b>!`);
       }
+      shell.roundNote = notes.join(' ');
       return lives <= 0;
     });
     if (!results) return void holdStamps(false);
@@ -549,24 +556,27 @@ export function startSurvival(app: HTMLElement, games: GameDef[], exit: () => vo
     const bestNow = getBest('survival') ?? rounds;
     const outOfGames = lives > 0;
     const nines = results.filter((r) => r.acc >= 90).length;
+    const plural = (n: number) => `${n} round${n === 1 ? '' : 's'}`;
     const card = shell.card(`
-      <div class="final-label">survival</div>
-      <div class="final-total"><b>0</b><span> rounds</span></div>
+      <div class="final-label">survival · ${outOfGames ? 'every round played!' : 'out of hearts'}</div>
+      <div class="final-total"><b>0</b><span> ${rounds === 1 ? 'round' : 'rounds'}</span></div>
       <div class="final-rank">“${outOfGames ? 'Survived Everything' : surviveRank(rounds)}”</div>
-      <div class="final-best">${total} points${nines ? ` · ${nines} round${nines === 1 ? '' : 's'} of 90+` : ''}</div>
+      ${rival ? `<div class="vs"><span>you <b>${rounds}</b></span><i>vs</i><span>${esc(rival.name)} <b>${rival.rounds}</b></span></div>` : ''}
+      ${tiles(results.slice(-10), null, SURVIVE_MIN)}
+      <div class="final-best">${results.length > 10 ? 'last 10 rounds · ' : ''}${total} points${nines ? ` · ${plural(nines)} of 90+` : ''}</div>
       ${xpBar(levelPreview(), total)}
       <div class="final-best">${isBest ? '<em>new best!</em>' : `best: ${bestNow} rounds`}</div>`);
     shell.countUp(card.querySelector('.final-total b')!, rounds);
     shell.confetti(Math.min(1, rounds / 15));
-    shell.setMood(rounds >= 10 ? 'cheer' : rounds >= 5 ? 'happy' : 'sad');
     const won = rival ? rounds > rival.rounds : false;
-    if (rival) shell.banner(won ? 'YOU WIN!' : rounds === rival.rounds ? 'TIE!' : 'SO CLOSE…');
+    shell.setMood(won || rounds >= 10 ? 'cheer' : rounds >= 5 ? 'happy' : 'sad');
+    if (rival && (won || rounds === rival.rounds || rival.rounds - rounds <= 2)) shell.banner(won ? 'YOU WIN!' : rounds === rival.rounds ? 'TIE!' : 'SO CLOSE…');
     const comment = rival
       ? won
-        ? `you outlasted <b>${esc(rival.name)}</b> (${rival.rounds} rounds)! send it back.`
+        ? `you outlasted <b>${esc(rival.name)}</b> (${plural(rival.rounds)})! send it back.`
         : rounds === rival.rounds
           ? `a tie with <b>${esc(rival.name)}</b>! rematch?`
-          : `<b>${esc(rival.name)}</b> lasted ${rival.rounds - rounds} more round${rival.rounds - rounds === 1 ? '' : 's'}. again?`
+          : `<b>${esc(rival.name)}</b> lasted ${plural(rival.rounds - rounds)} more. again?`
       : outOfGames
       ? 'you played every round I had and never ran out of hearts. who ARE you?'
       : isBest && rounds > 1
@@ -602,7 +612,7 @@ export function startSurvival(app: HTMLElement, games: GameDef[], exit: () => vo
         }
         const link = survivalLink(name || 'a friend', rounds);
         const res = await shareResult(
-          { title: 'survival', total: rounds, max: 0, unit: rounds === 1 ? 'round' : 'rounds', rank: outOfGames ? 'Survived Everything' : surviveRank(rounds), results, streak: 0, hat: hat(), body: body(), name, rival: rival ? { name: rival.name, total: rival.rounds } : null },
+          { title: 'survival', total: rounds, max: 0, unit: rounds === 1 ? 'round' : 'rounds', accOnly: SURVIVE_MIN, rank: outOfGames ? 'Survived Everything' : surviveRank(rounds), results, streak: 0, hat: hat(), body: body(), name, rival: rival ? { name: rival.name, total: rival.rounds } : null },
           `대충 survival: I lasted ${rounds} round${rounds === 1 ? '' : 's'} “${surviveRank(rounds)}”. can you last longer?`,
           link,
         );

@@ -111,7 +111,7 @@ export function renderProfile(app: HTMLElement, games: GameDef[], exit: () => vo
       <div class="records">${[
         [rec.bestDaily, 'best Daily'],
         [getBest('run'), 'best Quick Run'],
-        [getBest('survival'), 'Survival rounds'],
+        [getBest('survival'), 'best Survival'],
         [rec.perfects, 'perfect 100s'],
         [rec.rounds, 'rounds played'],
         [rec.dailies, 'Dailies played'],

@@ -3,6 +3,7 @@ import { drawKongi, type Mood } from './kongi';
 import { sfx } from './audio';
 import { type Tier, addPlay, body, firstTime, hat, plays, recordScore, tier } from './progress';
 import { earn } from './stamps';
+import { type BackGuard, askLeave, guardBack } from './guard';
 import { icons } from './icons';
 import { clamp, pick, rand, seedRandom } from './rng';
 import { BLUSH, BUTTER, LILAC, MINT, PASTELS, PEACH, SKY } from './palette';
@@ -68,6 +69,10 @@ export interface FrameOpts {
   rival?: { name: string; scores: number[] };
   /** Survival: hearts in the header instead of a step count. */
   lives?: number;
+  /** Something around this run (Party) guards the back gesture itself; back always asks. */
+  outerGuard?: boolean;
+  leaveTitle?: string;
+  leaveText?: string;
 }
 
 export const isAbort = (e: unknown) => e instanceof DOMException && e.name === 'AbortError';
@@ -189,11 +194,11 @@ export class Shell {
     $('.topbar').appendChild(muteButton());
     $('.back').addEventListener('click', () => {
       sfx.click();
-      if (this.running && (this.timed || this.total > 0)) this.confirmLeave();
-      else this.exit();
+      this.requestLeave();
     });
     if (opts.lives) {
       this.progress.classList.add('lives');
+      this.root.classList.add('survival');
       this.progress.innerHTML = `<span class="rnd"></span>${'<b class="heart"></b>'.repeat(opts.lives)}`;
       this.progress.setAttribute('aria-hidden', 'false');
       this.setLives(opts.lives);
@@ -276,28 +281,24 @@ export class Shell {
 
   /* The phone's back gesture: while a run is going, an extra history entry
      catches it and asks "leave this run?" instead of silently quitting. */
-  private guarded = false;
-  private onPop = () => {
-    if (!this.guarded) return;
-    history.pushState({ dcGuard: 1 }, '', location.href);
-    if (this.running) this.confirmLeave();
-  };
+  private backGuard: BackGuard | null = null;
   private guard() {
-    if (this.guarded || !this.timed) return;
-    this.guarded = true;
-    history.pushState({ dcGuard: 1 }, '', location.href);
-    window.addEventListener('popstate', this.onPop);
+    if (this.backGuard || !this.timed || this.opts.outerGuard) return;
+    this.backGuard = guardBack(() => this.running && this.requestLeave());
   }
   private unguard() {
-    if (!this.guarded) return;
-    this.guarded = false;
-    window.removeEventListener('popstate', this.onPop);
-    // still on our extra entry (the run ended normally): step off it quietly
-    if ((history.state as { dcGuard?: number } | null)?.dcGuard) history.back();
+    this.backGuard?.release();
+    this.backGuard = null;
+  }
+
+  /** Ask "leave?" (the back button, or a back gesture caught by an outer guard such as Party's). */
+  requestLeave() {
+    if ((this.running && (this.timed || this.total > 0)) || this.opts.outerGuard) this.confirmLeave();
+    else this.exit();
   }
 
   /** "Leave this run?" — the clock pauses while you decide. */
-  private confirmLeave() {
+  private async confirmLeave() {
     if (this.leaveOpen) return;
     this.leaveOpen = true;
     this.pauseClock();
@@ -306,36 +307,19 @@ export class Shell {
       this.replay = true;
       this.roundAc.abort();
     }
-    const m = el('div', 'leave-wrap', `<div class="leave-card" role="dialog" aria-label="leave this run?">
-        <b>leave this run?</b><p>your score so far won't be saved.</p>
-        <div><button class="btn primary stay"><span>keep playing</span></button><button class="btn go"><span>leave</span></button></div>
-      </div>`);
-    this.root.appendChild(m);
-    m.querySelector('.stay')!.addEventListener('click', () => {
+    const leave = await askLeave(this.root, this.opts.leaveTitle ?? 'leave this run?', this.opts.leaveText ?? "your score so far won't be saved.");
+    if (!leave) {
       sfx.pop();
-      m.remove();
       this.leaveOpen = false;
       this.stayers.splice(0).forEach((f) => f());
       this.resumeClock();
-    });
-    m.querySelector('.go')!.addEventListener('click', () => {
-      sfx.click();
-      m.remove();
-      if (!this.guarded || !(history.state as { dcGuard?: number } | null)?.dcGuard) return this.exit();
-      // step off our extra history entry first, so Back from home doesn't land on it
-      this.guarded = false;
-      window.removeEventListener('popstate', this.onPop);
-      let gone = false;
-      const leave = () => {
-        if (gone) return;
-        gone = true;
-        window.removeEventListener('popstate', leave);
-        this.exit();
-      };
-      window.addEventListener('popstate', leave);
-      window.setTimeout(leave, 400);
-      history.back();
-    });
+      return;
+    }
+    sfx.click();
+    const g = this.backGuard;
+    this.backGuard = null;
+    if (g) g.release(() => this.exit());
+    else this.exit();
   }
 
   /* ——— header ——— */
@@ -353,6 +337,12 @@ export class Shell {
 
   /** Survival hearts; `lost` plays the heart-break on the one that just went. */
   setLives(n: number, lost = false) {
+    if (lost) {
+      // a big cracked heart over the stage, so nobody misses it
+      const pop = el('div', 'heart-pop', '<i></i><b></b>');
+      this.overlay.appendChild(pop);
+      window.setTimeout(() => pop.remove(), 1400);
+    }
     const hearts = [...this.progress.querySelectorAll<HTMLElement>('.heart')];
     hearts.forEach((h, k) => {
       const gone = k >= n;
@@ -364,7 +354,7 @@ export class Shell {
 
   setProgress(i: number) {
     if (this.opts.lives) {
-      if (i < this.opts.steps) this.progress.querySelector('.rnd')!.textContent = `round ${i + 1}`;
+      if (i < this.opts.steps) this.progress.querySelector('.rnd')!.innerHTML = `<small>round </small>${i + 1}`;
       return;
     }
     if (this.progress.classList.contains('count')) {
@@ -906,7 +896,8 @@ export class Shell {
       const mine = acc + bonus;
       vs = ` <em>· ${esc(rival.name)} got ${theirs} ${mine > theirs ? '(you win this one!)' : mine === theirs ? '(tie!)' : '(they win this one)'}</em>`;
     }
-    this.say(`${detail} <em>· ${sub}</em>${vs}`);
+    this.say(this.roundNote ? `${detail}${vs}<br>${this.roundNote}` : `${detail} <em>· ${sub}</em>${vs}`);
+    this.roundNote = '';
     // once the number has landed, the sticker tucks into the corner so the answer underneath shows
     const tuck = window.setTimeout(() => s.classList.add('tuck'), 1100);
     if (this.timed && !last) await Promise.race([this.button('next'), this.wait(rival ? 3400 : 2800)]);
@@ -931,11 +922,22 @@ export class Shell {
     setTimeout(() => wrap.classList.remove('shake', 'shake-soft'), 450);
   }
 
+  /** Big centred shout. Several in a row queue up instead of piling on top of each other. */
+  private bannerFree = 0;
   banner(text: string) {
-    const b = el('div', 'banner', `<b>${text}</b>`);
-    this.overlay.appendChild(b);
-    setTimeout(() => b.remove(), 1500);
+    const now = performance.now();
+    const at = Math.max(now, this.bannerFree);
+    this.bannerFree = at + 1350;
+    window.setTimeout(() => {
+      if (this.signal.aborted) return;
+      const b = el('div', 'banner', `<b>${text}</b>`);
+      this.overlay.appendChild(b);
+      window.setTimeout(() => b.remove(), 1500);
+    }, at - now);
   }
+
+  /** Extra words for Kongi's line after this round's sticker (e.g. a heart breaking). */
+  roundNote = '';
 
   /** Doodle particles flying out from (x, y) on the effects layer. */
   burst(x: number, y: number, n: number) {

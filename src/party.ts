@@ -1,4 +1,5 @@
 import { earn } from './lib/stamps';
+import { type BackGuard, askLeave, guardBack } from './lib/guard';
 import { Stage } from './lib/stage';
 import { drawKongi, type Mood } from './lib/kongi';
 import { Shell, el, esc, muteButton, type GameDef, type StepResult } from './lib/shell';
@@ -43,13 +44,13 @@ function topbar(title: string, sub: string) {
   </header>`;
 }
 
-function screen(app: HTMLElement, cls: string, html: string, exit: () => void) {
+function screen(app: HTMLElement, cls: string, html: string, back: (root: HTMLElement) => void) {
   const root = el('section', `screen ${cls}`, html);
   app.appendChild(root);
   root.querySelector('.topbar')?.appendChild(muteButton());
   root.querySelector('.back')?.addEventListener('click', () => {
     sfx.click();
-    exit();
+    back(root);
   });
   return root;
 }
@@ -76,6 +77,29 @@ export function startParty(app: HTMLElement, games: GameDef[], exit: () => void)
   let players = loadPlayers();
   let count = 5;
 
+  /* While a party is under way, back (button or gesture) asks before throwing everyone's scores away. */
+  let guard: BackGuard | null = null;
+  let current: Shell | null = null;
+  let passRoot: HTMLElement | null = null;
+  const leaveParty = () => {
+    const g = guard;
+    guard = null;
+    if (g) g.release(exit);
+    else exit();
+  };
+  const askEnd = async (root: HTMLElement) => {
+    if (!players.some((p) => p.results)) return leaveParty();
+    if (root.querySelector('.leave-wrap')) return;
+    if (await askLeave(root, 'end the party?', "everyone's scores so far will be lost.")) leaveParty();
+  };
+  const stopGuard = () => {
+    guard?.release();
+    guard = null;
+  };
+  const startGuard = () => {
+    guard ??= guardBack(() => (current ? current.requestLeave() : passRoot ? void askEnd(passRoot) : leaveParty()));
+  };
+
   /* ——— setup ——— */
   const setup = () =>
     new Promise<void>((resolve) => {
@@ -89,7 +113,7 @@ export function startParty(app: HTMLElement, games: GameDef[], exit: () => void)
             <button data-n="5">5</button><button data-n="10">10</button>
           </div>
           <button class="btn primary start"><span>start the party</span></button>
-        </div>`, exit);
+        </div>`, () => leaveParty());
       const stage = new Stage(root.querySelector('.crowd')!, 'crowd-canvas', { fps: 20 });
       stage.draw = (pen, w, h, t) => crowd(pen, w, h, t, players);
       swap(() => {
@@ -156,15 +180,18 @@ export function startParty(app: HTMLElement, games: GameDef[], exit: () => void)
           <button class="btn primary"><span>I'm ${esc(p.name)} — go!</span></button>
           ${leader ? `<div class="to-beat">score to beat: <b>${esc(leader.name)}</b> ${leader.total}</div>` : ''}
           <small>${count} mini-games · each one on a timer</small>
-        </div>`, exit);
+        </div>`, (r) => void askEnd(r));
+      passRoot = root;
       root.style.setProperty('--pc', p.body);
       const stage = new Stage(root.querySelector('.pass-kongi')!, 'pass-canvas', { fps: 20 });
       stage.draw = (pen, w, h, t) => drawKongi(pen, w / 2, h - 8, Math.min(w * 0.6, h * 0.75), 'cheer', t, { body: p.body });
       swap(() => {
+        passRoot = null;
         stage.destroy();
         root.remove();
       });
       root.querySelector('.btn')!.addEventListener('click', () => {
+        if (root.querySelector('.leave-wrap')) return;
         sfx.pop();
         resolve();
       });
@@ -173,8 +200,16 @@ export function startParty(app: HTMLElement, games: GameDef[], exit: () => void)
   /* ——— one player's run ——— */
   const playOne = async (p: Player, seed: number, next: Player | undefined) => {
     const steps = buildRun(games, count, seed);
-    const g = new Shell(app, { title: 'Party', kr: '파티', color: PINK, steps: steps.length, timed: true, player: { name: p.name, body: p.body } }, exit);
-    swap(() => g.destroy());
+    const g = new Shell(
+      app,
+      { title: 'Party', kr: '파티', color: PINK, steps: steps.length, timed: true, player: { name: p.name, body: p.body }, outerGuard: true, leaveTitle: 'end the party?', leaveText: "everyone's scores so far will be lost." },
+      leaveParty,
+    );
+    current = g;
+    swap(() => {
+      current = null;
+      g.destroy();
+    });
     const results = await g.playSteps(steps, seed);
     if (!results) return false;
     p.results = results;
@@ -201,6 +236,8 @@ export function startParty(app: HTMLElement, games: GameDef[], exit: () => void)
     new Promise<'again' | 'setup'>((resolve) => {
       if (players.length >= 2) earn('party');
       const ranked = [...players].sort((a, b) => (b.total ?? 0) - (a.total ?? 0));
+      const places = placesOf(ranked);
+      const tiedTop = places.filter((x) => x === 1).length > 1;
       const n = players[0].results?.length ?? 0;
       const mvps: string[] = [];
       for (let k = 0; k < n; k++) {
@@ -216,7 +253,7 @@ export function startParty(app: HTMLElement, games: GameDef[], exit: () => void)
         <div class="board-body">
           <div class="podium"></div>
           <ol class="ranking">${ranked
-            .map((p, i) => `<li style="--pc:${p.body}"><span class="place">${i + 1}</span><i class="dot"></i><b>${esc(p.name)}</b><em>${p.total}</em></li>`)
+            .map((p, i) => `<li style="--pc:${p.body}"><span class="place">${places[i]}</span><i class="dot"></i><b>${esc(p.name)}</b><em>${p.total}${places[i] === 1 && tiedTop ? ' · tie!' : ''}</em></li>`)
             .join('')}</ol>
           <h3>closest eyeball per game</h3>
           <ul class="mvps">${mvps.join('')}</ul>
@@ -226,7 +263,7 @@ export function startParty(app: HTMLElement, games: GameDef[], exit: () => void)
             <button class="btn setup"><span>change players</span></button>
             <button class="btn home"><span>${icons.home} home</span></button>
           </div>
-        </div>`, exit);
+        </div>`, () => leaveParty());
       const stage = new Stage(root.querySelector('.podium')!, 'podium-canvas', { fps: 24 });
       stage.draw = (pen, w, h, t) => drawPodium(pen, w, h, t, ranked);
       swap(() => {
@@ -237,7 +274,7 @@ export function startParty(app: HTMLElement, games: GameDef[], exit: () => void)
       const shareBtn = root.querySelector<HTMLButtonElement>('.share')!;
       shareBtn.addEventListener('click', async () => {
         sfx.pop();
-        const text = `대충 party: ${ranked.map((p, i) => `${i + 1}. ${p.name} ${p.total}`).join(', ')}`;
+        const text = `대충 party: ${ranked.map((p, i) => `${places[i]}. ${p.name} ${p.total}`).join(', ')}`;
         const res = await shareImage(drawPartyCard(ranked, n), text, `${location.origin}${location.pathname}`);
         if (res === 'copied') shareBtn.innerHTML = '<span>copied + saved!</span>';
         else if (res === 'saved') shareBtn.innerHTML = '<span>picture saved!</span>';
@@ -245,7 +282,7 @@ export function startParty(app: HTMLElement, games: GameDef[], exit: () => void)
       });
       root.querySelector('.again')!.addEventListener('click', () => (sfx.pop(), resolve('again')));
       root.querySelector('.setup')!.addEventListener('click', () => (sfx.pop(), resolve('setup')));
-      root.querySelector('.home')!.addEventListener('click', () => (sfx.click(), exit()));
+      root.querySelector('.home')!.addEventListener('click', () => (sfx.click(), leaveParty()));
     });
 
   void (async () => {
@@ -257,12 +294,15 @@ export function startParty(app: HTMLElement, games: GameDef[], exit: () => void)
         players[i].results = undefined;
         players[i].total = undefined;
       }
+      startGuard();
       for (let i = 0; i < players.length; i++) {
         await pass(players[i], i);
         if (!alive) return;
         if (!(await playOne(players[i], seed, players[i + 1]))) return;
       }
       if (!alive) return;
+      // the party is over and scored: nothing left to lose by going back
+      stopGuard();
       const choice = await board();
       if (choice === 'setup') await setup();
     }
@@ -270,11 +310,18 @@ export function startParty(app: HTMLElement, games: GameDef[], exit: () => void)
 
   return () => {
     alive = false;
+    stopGuard();
     swap(null);
   };
 }
 
+/** Places with ties shared: 216, 216, 180 → 1, 1, 3. `ranked` is sorted best first. */
+function placesOf(ranked: Player[]) {
+  return ranked.map((p) => 1 + ranked.filter((q) => (q.total ?? 0) > (p.total ?? 0)).length);
+}
+
 function drawPodium(pen: Pen, w: number, h: number, t: number, ranked: Player[]) {
+  const places = placesOf(ranked);
   const spots = [
     { place: 2, k: 0.42, x: -1, color: SKY },
     { place: 1, k: 0.62, x: 0, color: BUTTER },
@@ -282,19 +329,23 @@ function drawPodium(pen: Pen, w: number, h: number, t: number, ranked: Player[])
   ].filter((s) => s.place <= ranked.length);
   const bw = Math.min(120, w / 3.4);
   const ground = h - 6;
-  const maxBlock = h * 0.48;
+  const size = Math.min(bw * 0.78, h * 0.34);
+  // the winner's name sits above Kongi and the crown: keep it inside the picture
+  const maxBlock = Math.min(h * 0.48, ground - 2 - size * 1.08 - 42 - 16);
+  // two players: centre the pair
+  const shift = ranked.length === 2 ? 0.5 : 0;
   for (const s of spots) {
     const p = ranked[s.place - 1];
-    const cx = w / 2 + s.x * (bw + 10);
+    const place = places[s.place - 1]; // shared when tied
+    const cx = w / 2 + (s.x + shift) * (bw + 10);
     const bh = maxBlock * (s.k / 0.62);
     pen.rrect(cx - bw / 2, ground - bh, bw, bh, 10, { fill: s.color, seed: 800 + s.place });
-    pen.text(String(s.place), cx, ground - bh / 2 + 4, { size: Math.min(42, bh * 0.6) });
-    const size = Math.min(bw * 0.78, h * 0.34);
+    pen.text(String(place), cx, ground - bh / 2 + 4, { size: Math.min(42, bh * 0.6) });
     const ky = ground - bh - 2;
-    const mood: Mood = s.place === 1 ? 'cheer' : s.place === 2 ? 'happy' : 'wow';
+    const mood: Mood = place === 1 ? 'cheer' : place === 2 ? 'happy' : 'wow';
     drawKongi(pen, cx, ky, size, mood, t + s.place * 0.4, { body: p.body });
-    pen.text(p.name, cx, ky - size * 1.08 - (s.place === 1 ? 42 : 8), { size: 18, outline: WHITE });
-    if (s.place === 1) {
+    pen.text(p.name, cx, Math.max(14, ky - size * 1.08 - (place === 1 ? 42 : 8)), { size: 18, outline: WHITE });
+    if (place === 1) {
       // crown, bobbing with the cheer hop
       const cy = ky - size * 0.98 - 8 + Math.sin(t * 6) * 2;
       const cw = size * 0.42;
@@ -333,9 +384,10 @@ export function drawPartyCard(ranked: Player[], games: number): HTMLCanvasElemen
   const many = ranked.length > 5;
   const size = many ? 36 : 46, gap = many ? 50 : 66;
   let y = 800;
+  const places = placesOf(ranked);
   ranked.forEach((p, i) => {
     pen.circle(190, y, size * 0.36, { fill: p.body, width: 4, seed: 40 + i });
-    pen.text(String(i + 1), 140, y, { size, color: i === 0 ? BERRY : INK });
+    pen.text(String(places[i]), 140, y, { size, color: places[i] === 1 ? BERRY : INK });
     pen.text(p.name, 240, y, { size, align: 'left' });
     pen.text(String(p.total ?? 0), W - 150, y, { size, align: 'right' });
     y += gap;
