@@ -6,7 +6,7 @@ import { hatById } from './hats';
  * Kongi (콩이) — a little bean-sprout mochi who hosts every game.
  * Drawn entirely with the wobbly pen, so it boils along with everything else.
  */
-export type Mood = 'idle' | 'happy' | 'cheer' | 'wow' | 'sad' | 'focus' | 'listen';
+export type Mood = 'idle' | 'happy' | 'cheer' | 'wow' | 'sad' | 'focus' | 'listen' | 'sleepy';
 
 export interface KongiOpts {
   /** Where the eyes look, each -1..1. */
@@ -39,6 +39,11 @@ export function drawKongi(pen: Pen, x: number, y: number, W: number, mood: Mood,
       sy = 1 - 0.12 * k;
       sx = 1 + 0.1 * k;
     }
+  } else if (mood === 'sleepy') {
+    // slow, deep breaths
+    const b = Math.sin(t * 1.3);
+    sy = 1 + 0.045 * b;
+    sx = 1 - 0.03 * b;
   } else {
     const b = Math.sin(t * 2.6);
     sy = 1 + 0.025 * b;
@@ -102,7 +107,7 @@ export function drawKongi(pen: Pen, x: number, y: number, W: number, mood: Mood,
   // ——— hat & sprout ———
   const hatDef = hatById(o.hat);
   hatDef.draw(pen, x, by - ryT, W, t);
-  const sway = Math.sin(t * 2.2) * 0.16 + (mood === 'cheer' ? Math.sin(t * 14) * 0.18 : 0) - (mood === 'sad' ? 0.5 : 0);
+  const sway = Math.sin(t * 2.2) * 0.16 + (mood === 'cheer' ? Math.sin(t * 14) * 0.18 : 0) - (mood === 'sad' ? 0.5 : mood === 'sleepy' ? 0.35 : 0);
   const base: Pt = [x + bw * 0.06, by - ryT + lw * 0.6 - (hatDef.lift ?? 0) * W];
   const L = W * 0.2;
   const tip: Pt = [base[0] + Math.sin(sway) * L, base[1] - Math.cos(sway) * L];
@@ -145,7 +150,7 @@ export function drawKongi(pen: Pen, x: number, y: number, W: number, mood: Mood,
     const sd = 970 + side;
     if (mood === 'happy' || mood === 'cheer') {
       pen.curve([[cx - e, ey + e * 0.35], [cx, ey - e * 0.55], [cx + e, ey + e * 0.35]], { width: lw, rough: 0.3, seed: sd });
-    } else if (mood === 'listen' || blink) {
+    } else if (mood === 'listen' || mood === 'sleepy' || blink) {
       pen.curve([[cx - e, ey], [cx, ey + e * 0.55], [cx + e, ey]], { width: lw, rough: 0.3, seed: sd });
     } else if (mood === 'wow') {
       pen.ellipse(cx, ey, e * 0.95, e * 1.1, { ...eyeStyle, seed: sd });
@@ -180,6 +185,14 @@ export function drawKongi(pen: Pen, x: number, y: number, W: number, mood: Mood,
       [[mx - m * 1.15, my - m * 0.25], [mx - m * 0.55, my + m * 0.5], [mx, my], [mx + m * 0.55, my + m * 0.5], [mx + m * 1.15, my - m * 0.25]],
       { width: lw * 0.9, rough: 0.25, seed: 983 },
     );
+  }
+
+  // zzz
+  if (mood === 'sleepy') {
+    for (let i = 0; i < 3; i++) {
+      const k = (t * 0.35 + i / 3) % 1;
+      pen.text('z', x + W * (0.42 + k * 0.25), by - H * (0.55 + k * 0.6), { size: W * (0.17 + k * 0.13), alpha: Math.sin(k * Math.PI), font: 'gaegu' });
+    }
   }
 
   // tear

@@ -171,7 +171,9 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
   let mood: Mood = 'happy';
   let moodUntil = 0;
   const kongi = mount(kongiSlot, 'kongi-hero', (pen, w, h, t) => {
-    if (t > moodUntil) mood = Math.floor(t / 5) % 3 === 2 ? 'idle' : 'happy';
+    // late at night Kongi dozes off (tap to wake it for a moment)
+    const hr = new Date().getHours();
+    if (t > moodUntil) mood = hr >= 23 || hr < 6 ? 'sleepy' : Math.floor(t / 5) % 3 === 2 ? 'idle' : 'happy';
     drawKongi(pen, w / 2, h - 10, Math.min(w * 0.66, h * 0.66), mood, t, { hat: hat() });
   }, 15);
   const openCloset = () => closet(() => (mood = 'cheer', moodUntil = kongi.time + 1.6));
