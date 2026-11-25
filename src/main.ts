@@ -3,6 +3,7 @@ import { renderHome } from './home';
 import type { GameDef } from './lib/shell';
 import { startPractice, startRun } from './modes';
 import { startParty } from './party';
+import { decodeChallenge, setPending } from './challenge';
 import { angle } from './games/angle';
 import { beat } from './games/beat';
 import { cut } from './games/cut';
@@ -23,7 +24,14 @@ const home = () => (location.hash = '');
 function route() {
   cleanup?.();
   cleanup = null;
-  const path = location.hash.replace(/^#\/?/, '');
+  const [path, query] = location.hash.replace(/^#\/?/, '').split('?');
+  // challenge links: #/daily?c=<code> → remember the rival, tidy the URL
+  const code = new URLSearchParams(query ?? '').get('c');
+  if (code) {
+    const c = decodeChallenge(code);
+    if (c) setPending(c);
+    history.replaceState(null, '', `${location.pathname}#/${path}`);
+  }
   window.scrollTo(0, 0);
   if (path === 'daily' || path === 'run') cleanup = startRun(app, games, path === 'daily' ? 'daily' : 'quick', home);
   else if (path === 'party') cleanup = startParty(app, games, home);

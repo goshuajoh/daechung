@@ -41,3 +41,9 @@ export function drawPill(pen: Pen, cx: number, cy: number, label: string, color:
   pen.rrect(cx - w / 2 + d, cy - h / 2 + d, w, h, 12, { fill: color, seed: 980, rough: 0.6, shift: press ? [0, 0] : [3, 3] });
   pen.text(label, cx + d, cy + d + 1, { size: 15 });
 }
+
+/** The big target at the top of the stage, with a plain-words caption under it. */
+export function drawPrompt(pen: Pen, w: number, big: string, caption: string) {
+  pen.text(big, w / 2, 40, { size: 44 });
+  pen.text(caption, w / 2, 76, { size: 19, font: 'gaegu', alpha: 0.65 });
+}

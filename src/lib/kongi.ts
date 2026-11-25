@@ -1,5 +1,6 @@
 import type { Pen, Pt } from './pen';
 import { BERRY, BLUSH, INK, LEAF, SHADOW, SKY, WHITE } from './palette';
+import { hatById } from './hats';
 
 /**
  * Kongi (콩이) — a little bean-sprout mochi who hosts every game.
@@ -15,6 +16,8 @@ export interface KongiOpts {
   /** Mirror horizontally. */
   flip?: boolean;
   body?: string;
+  /** Hat id from the wardrobe (see hats.ts). */
+  hat?: string;
 }
 
 const TAU = Math.PI * 2;
@@ -96,9 +99,11 @@ export function drawKongi(pen: Pen, x: number, y: number, W: number, mood: Mood,
   }
   pen.blob(pts, { fill: body, width: lw, seed: 930, rough: W * 0.012, shift: [W * 0.025, W * 0.03] });
 
-  // ——— sprout ———
+  // ——— hat & sprout ———
+  const hatDef = hatById(o.hat);
+  hatDef.draw(pen, x, by - ryT, W, t);
   const sway = Math.sin(t * 2.2) * 0.16 + (mood === 'cheer' ? Math.sin(t * 14) * 0.18 : 0) - (mood === 'sad' ? 0.5 : 0);
-  const base: Pt = [x + bw * 0.06, by - ryT + lw * 0.6];
+  const base: Pt = [x + bw * 0.06, by - ryT + lw * 0.6 - (hatDef.lift ?? 0) * W];
   const L = W * 0.2;
   const tip: Pt = [base[0] + Math.sin(sway) * L, base[1] - Math.cos(sway) * L];
   const bend: Pt = [base[0] + Math.sin(sway * 0.4) * L * 0.5 + W * 0.02, base[1] - L * 0.5];
@@ -110,9 +115,11 @@ export function drawKongi(pen: Pen, x: number, y: number, W: number, mood: Mood,
       fill: LEAF, width: lw * 0.85, seed, rough: 0.5, shift: [1.5, 1.5],
     });
   };
-  pen.curve([base, bend, tip], { width: lw, seed: 940, rough: 0.4 });
-  leaf(-1, W * 0.17, 941);
-  leaf(1, W * 0.14, 942);
+  if (hatDef.sprout === 'over') {
+    pen.curve([base, bend, tip], { width: lw, seed: 940, rough: 0.4 });
+    leaf(-1, W * 0.17, 941);
+    leaf(1, W * 0.14, 942);
+  }
 
   // ——— face ———
   const look = o.look ?? [Math.sin(t * 0.7) * 0.3, 0];

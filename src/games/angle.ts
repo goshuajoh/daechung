@@ -3,7 +3,7 @@ import type { Pen, Pt } from '../lib/pen';
 import { sfx } from '../lib/audio';
 import { BERRY, BUTTER, INK, PEACH, WHITE } from '../lib/palette';
 import { clamp, easeInOut, easeOutBack, easeOutCubic, lerp, rand, randInt } from '../lib/rng';
-import { drawHand, drawPill, loop, span } from '../lib/hand';
+import { drawHand, drawPill, drawPrompt, loop, span } from '../lib/hand';
 
 const D2R = Math.PI / 180;
 /** Screen direction for a math-style (counter-clockwise, y-up) angle in degrees. */
@@ -17,7 +17,7 @@ function pickTarget(): number {
 }
 
 /** Draws the two rays + wedge. `base` = baseline direction, `open` = angle from it (deg). */
-function drawAngle(pen: Pen, v: Pt, L: number, base: number, open: number, o: { handle?: number; wedge?: string; seed?: number } = {}) {
+function drawAngle(pen: Pen, v: Pt, L: number, base: number, open: number, o: { handle?: number; wedge?: string; seed?: number; arrow?: boolean } = {}) {
   const [bx, by] = dir(base);
   const [ax, ay] = dir(base + open);
   const r = L * 0.3;
@@ -38,6 +38,27 @@ function drawAngle(pen: Pen, v: Pt, L: number, base: number, open: number, o: { 
   const hr = 13 * (o.handle ?? 1);
   pen.circle(v[0] + ax * L, v[1] + ay * L, hr, { fill: PEACH, seed: 16 });
   pen.circle(v[0], v[1], 7, { fill: WHITE, seed: 17 });
+  if (o.arrow) {
+    // a curved two-way arrow along the path the ball travels: "drag me round this way"
+    const R = L + 26;
+    const a0 = Math.max(base, base + open - 26), a1 = Math.min(base + 180, base + open + 26);
+    const pts: Pt[] = [];
+    for (let k = 0; k <= 10; k++) {
+      const [dx, dy] = dir(a0 + ((a1 - a0) * k) / 10);
+      pts.push([v[0] + dx * R, v[1] + dy * R]);
+    }
+    pen.curve(pts, { stroke: BERRY, width: 3, seed: 18, rough: 0.4 });
+    const wing = (deg: number, back: number) => {
+      const [dx, dy] = dir(deg);
+      const p: Pt = [v[0] + dx * R, v[1] + dy * R];
+      for (const s of [-28, 28]) {
+        const [wx, wy] = dir(deg + back + s);
+        pen.line(p[0], p[1], p[0] + wx * 11, p[1] + wy * 11, { stroke: BERRY, width: 3, seed: 19 + s, rough: 0.2 });
+      }
+    };
+    if (a1 > base + open + 4) wing(a1, 270);
+    if (a0 < base + open - 4) wing(a0, 90);
+  }
 }
 
 export const angle: GameDef = {
@@ -92,7 +113,7 @@ export const angle: GameDef = {
     const born = g.stage.time;
     const target = pickTarget();
     const base = level < 2 ? 0 : rand(0, 360);
-    let open = level === 4 ? 180 : 0; // last round starts fully open, just to mess with you
+    let open = level === 4 ? 160 : 25; // start a little open so the two sticks are clearly separate
     let touched = false;
     let dragging = false;
     let revealAt = 0;
@@ -117,9 +138,9 @@ export const angle: GameDef = {
 
     stage.draw = (pen, w, h, t) => {
       const { v, L } = layout(w, h);
-      pen.text(`${target}°`, w / 2, 40, { size: 46 });
+      drawPrompt(pen, w, `${target}°`, 'make this angle');
       if (!revealAt) {
-        drawAngle(pen, v, L, base, open, { handle: dragging ? 1.35 : 1 + Math.sin(t * 5) * 0.08 });
+        drawAngle(pen, v, L, base, open, { handle: dragging ? 1.35 : 1 + Math.sin(t * 5) * 0.08, arrow: !touched });
         if (!touched) {
           const [ax, ay] = dir(base + open + 18);
           pen.text('drag me', v[0] + ax * L * 0.85, v[1] + ay * L * 0.85, { size: 20, font: 'gaegu', alpha: 0.6 + Math.sin(t * 4) * 0.3 });

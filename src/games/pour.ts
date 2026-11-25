@@ -3,7 +3,7 @@ import type { Pen, Pt } from '../lib/pen';
 import { sfx } from '../lib/audio';
 import { APRICOT, BERRY, INK, WHITE } from '../lib/palette';
 import { clamp, easeInOut, easeOutBack, lerp, pick, rand, randInt } from '../lib/rng';
-import { drawHand, loop, span } from '../lib/hand';
+import { drawHand, drawPrompt, loop, span } from '../lib/hand';
 
 interface Drink { name: string; color: string; foam: string }
 const DRINKS: Drink[] = [
@@ -143,9 +143,10 @@ export const pour: GameDef = {
     const drops: { x: number; y: number; vx: number; vy: number; life: number }[] = [];
 
     const layout = (w: number, h: number): Cup => {
-      const ch = Math.min(h - 150, 330, (w * 0.46) / aspect);
+      // leave room at the top for the target + caption + the pitcher
+      const ch = Math.max(110, Math.min(h - 36 - 170, 300, (w * 0.42) / aspect));
       const cw = ch * aspect;
-      return { x: Math.max(70, w / 2 - cw / 2 - 10), y: h - 36 - ch, w: cw, h: ch };
+      return { x: Math.max(70, w / 2 - cw / 2 - 6), y: h - 36 - ch, w: cw, h: ch };
     };
 
     const born = g.stage.time;
@@ -165,15 +166,16 @@ export const pour: GameDef = {
       }
       tip += ((pouring ? 1 : 0) - tip) * Math.min(1, dt * 10);
       wobble += ((pouring ? 1 : 0) - wobble) * Math.min(1, dt * 3);
-      pen.text(`${target}%`, w / 2, 42, { size: 46 });
-      const mouth: Pt = [cup.x + cup.w * 0.28, cup.y - 40];
+      drawPrompt(pen, w, `${target}%`, 'fill the glass this full');
+      const mouth: Pt = [cup.x + cup.w * 0.24, cup.y - 22];
+      const sc = clamp(h / 540, 0.72, 1);
       if (tip > 0.6) {
         const surf = cup.y + cup.h - fill * cup.h;
         pen.line(mouth[0] - 3, mouth[1] + 4, mouth[0] + 2, surf, { stroke: drink.color, width: 7, seed: 81, rough: 0.8 });
         pen.line(mouth[0] - 3, mouth[1] + 4, mouth[0] + 2, surf, { stroke: INK, width: 1.5, seed: 82, alpha: 0.5 });
       }
       drawCup(pen, cup, fill, drink, t, wobble);
-      drawPitcher(pen, mouth, tip, drink);
+      drawPitcher(pen, mouth, tip, drink, sc);
       for (let i = drops.length - 1; i >= 0; i--) {
         const d = drops[i];
         d.vy += 600 * dt;
@@ -183,7 +185,11 @@ export const pour: GameDef = {
         if (d.life <= 0) drops.splice(i, 1);
         else pen.circle(d.x, d.y, 4, { fill: drink.color, width: 1.6, seed: 90 + (i % 5) });
       }
-      if (!started) pen.text('hold anywhere', w / 2, cup.y - 70, { size: 22, font: 'gaegu', alpha: 0.5 + Math.sin(t * 4) * 0.25 });
+      if (!started) {
+        const roomRight = w - (cup.x + cup.w) > 130;
+        const hx = roomRight ? cup.x + cup.w + 18 : w / 2, hy = roomRight ? cup.y + cup.h * 0.2 : h - 14;
+        pen.text('press & hold anywhere', hx, hy, { size: 20, font: 'gaegu', align: roomRight ? 'left' : 'center', alpha: 0.55 + Math.sin(t * 4) * 0.25 });
+      }
       if (!started && t - born > 1.2) {
         const k = (t - born) % 1.6;
         drawHand(pen, cup.x + cup.w + 50, cup.y + cup.h * 0.5, { press: k > 0.3 && k < 1.2 ? 1 : 0, alpha: 0.9 });

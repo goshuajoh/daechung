@@ -1,7 +1,7 @@
 import { Stage } from './stage';
 import { drawKongi, type Mood } from './kongi';
 import { sfx } from './audio';
-import { hasLearned, markLearned } from './store';
+import { addPlay, firstTime, hat, tier, type Tier } from './progress';
 import { icons } from './icons';
 import { clamp, pick, rand, seedRandom } from './rng';
 import { BLUSH, BUTTER, LILAC, MINT, PASTELS, PEACH, SKY } from './palette';
@@ -59,6 +59,8 @@ export interface FrameOpts {
   /** Run mode: countdowns, speed bonus, title cards, quick variants, auto-advance. */
   timed: boolean;
   player?: { name: string; body: string };
+  /** A friend's run to compare against (challenge links). */
+  rival?: { name: string; scores: number[] };
 }
 
 export const isAbort = (e: unknown) => e instanceof DOMException && e.name === 'AbortError';
@@ -96,6 +98,7 @@ const STICKERS: [number, string, string, string][] = [
 ];
 
 interface Confetto { x: number; y: number; vy: number; vx: number; r: number; vr: number; kind: number; c: string; s: number }
+interface Particle extends Confetto { life: number }
 
 /**
  * The frame around every mini-game: top bar, canvas stage, Kongi's speech dock,
@@ -114,6 +117,11 @@ export class Shell {
   private titleEl: HTMLElement;
   private timebar: HTMLElement;
   private timefill: HTMLElement;
+  private timesec: HTMLElement;
+  private fx: Stage;
+  private particles: Particle[] = [];
+  /** Rounds in a row scoring 70+. */
+  combo = 0;
   private ac = new AbortController();
   private moodTimer = 0;
   private baseMood: Mood = 'idle';
@@ -145,7 +153,7 @@ export class Shell {
         <div class="progress" aria-hidden="true"></div>
         <div class="score-chip" title="total score"><span class="total">0</span></div>
       </header>
-      <div class="timebar" aria-hidden="true"><i></i></div>
+      <div class="timebar" aria-hidden="true"><span class="tb-ico">${icons.clock}</span><div class="tb-track"><i></i></div><b class="tb-sec"></b></div>
       <div class="stage-wrap">
         <div class="overlay"></div>
       </div>
@@ -163,7 +171,8 @@ export class Shell {
     this.totalEl = $('.total');
     this.titleEl = $('.game-title');
     this.timebar = $('.timebar');
-    this.timefill = $('.timebar i');
+    this.timefill = $('.tb-track i');
+    this.timesec = $('.tb-sec');
     $('.topbar').appendChild(muteButton());
     $('.back').addEventListener('click', () => {
       sfx.click();
@@ -176,15 +185,19 @@ export class Shell {
     const wrap = $('.stage-wrap');
     this.stage = new Stage(wrap, 'stage', { fps: 30, activeFps: 60 });
     wrap.insertBefore(this.stage.canvas, this.overlay);
+    // effects layer (particles) above the game, below the DOM overlay; only draws while busy
+    this.fx = new Stage(wrap, 'fx', { fps: 30, activeFps: 60 });
+    wrap.insertBefore(this.fx.canvas, this.overlay);
 
     this.kongi = new Stage($('.kongi-slot'), 'kongi-mini', { fps: 20 });
     this.kongi.draw = (pen, w, h, t, dt) => {
       this.bop = Math.max(0, this.bop - dt * 5);
-      drawKongi(pen, w / 2, h - 6, Math.min(w * 0.72, h * 0.8), this.mood, t, { look: this.look, bop: this.bop, body: opts.player?.body });
+      drawKongi(pen, w / 2, h - 6, Math.min(w * 0.68, h * 0.74), this.mood, t, { look: this.look, bop: this.bop, body: opts.player?.body, hat: opts.player ? undefined : hat() });
     };
 
     this.onKey = this.onKey.bind(this);
     window.addEventListener('keydown', this.onKey);
+    if (import.meta.env.DEV) (window as unknown as { __shell: Shell }).__shell = this;
   }
 
   get signal() {
@@ -213,6 +226,7 @@ export class Shell {
     window.removeEventListener('keydown', this.onKey);
     clearTimeout(this.moodTimer);
     this.stage.destroy();
+    this.fx.destroy();
     this.kongi.destroy();
     this.root.remove();
   }
@@ -308,7 +322,7 @@ export class Shell {
     this.clearActions();
     return this.until<number>((done) => {
       labels.forEach((label, i) => {
-        const b = el('button', `btn${i === primary ? ' primary' : ''}`, `<span>${label}</span>`);
+        const b = el('button', `btn${i === primary ? ' primary' : ''}${label.startsWith('<svg') ? ' icon-only' : ''}`, `<span>${label}</span>`);
         b.addEventListener('click', () => {
           sfx.pop();
           this.clearActions();
@@ -358,6 +372,7 @@ export class Shell {
     this.timeLeft = null;
     this.timebar.classList.add('on');
     this.timebar.classList.remove('warn');
+    this.timesec.textContent = `${Math.ceil(seconds)}s`;
     let lastSec = Math.ceil(seconds);
     return new Promise<void>((resolve) => {
       const step = () => {
@@ -365,10 +380,13 @@ export class Shell {
         const left = Math.max(0, 1 - (performance.now() - this.clockT0) / this.clockDur);
         this.timefill.style.transform = `scaleX(${left})`;
         const sec = Math.ceil(left * seconds);
-        if (left < 0.34 && sec !== lastSec) {
+        if (sec !== lastSec) {
           lastSec = sec;
-          this.timebar.classList.add('warn');
-          sfx.click();
+          this.timesec.textContent = `${sec}s`;
+          if (left < 0.34) {
+            this.timebar.classList.add('warn');
+            sfx.click();
+          }
         }
         if (left <= 0) {
           this.clockLive = false;
@@ -406,38 +424,128 @@ export class Shell {
 
   /* ——— flow ——— */
 
-  /** Draw a game's thumbnail big in the middle of the stage. */
-  showcase(def: GameDef, subtitle: string) {
+  /* ——— instruction cards (Bishi-Bashi style) ——— */
+
+  private get who() {
+    return this.opts.player?.name ?? '';
+  }
+
+  /**
+   * Shown before every game. How much it explains depends on how often this
+   * player has played it: new → full demo + steps (practice offered, never forced),
+   * learning → demo + auto-start countdown, pro → a quick flash card.
+   */
+  async briefing(def: GameDef, i: number | null, opts: { force?: Tier; goLabel?: string } = {}) {
+    let t: Tier = opts.force ?? tier(def.id, this.who);
+    let practised = false;
+    for (;;) {
+      const action = t === 'pro' ? await this.flashCard(def, i) : await this.instructionCard(def, i, t, practised, opts.goLabel);
+      if (action === 'go') break;
+      if (action === 'help') {
+        t = 'new';
+        continue;
+      }
+      await this.tryRound(def);
+      practised = true;
+      t = 'new';
+    }
+    this.overlay.innerHTML = '';
+    await this.goFlash();
+  }
+
+  private fadedThumb(def: GameDef) {
     this.stage.draw = (pen, w, h, t) => {
-      const bw = Math.min(w - 32, 440), bh = Math.min(h * 0.62, bw * 0.72);
-      const x = (w - bw) / 2, y = Math.max(76, (h - bh) / 2 + 30);
-      pen.text(def.name, w / 2, y - 44, { size: Math.min(44, w * 0.1) });
-      pen.text(subtitle, w / 2, y - 12, { size: 20, font: 'gaegu', alpha: 0.7 });
-      pen.ctx.save();
-      pen.ctx.translate(x, y);
-      def.thumb(pen, bw, bh, t);
-      pen.ctx.restore();
+      def.thumb(pen, w, h, t);
+      // wash of paper on top (globalAlpha would break layered doodles)
+      pen.ctx.fillStyle = 'rgba(255, 250, 240, 0.72)';
+      pen.ctx.fillRect(0, 0, w, h);
     };
   }
 
-  /** Big slammed-in card before each game in a run. Resolves true if they asked for help. */
-  private async titleCard(def: GameDef, i: number, offerHelp: boolean, sub = def.verb): Promise<boolean> {
-    this.stage.draw = (pen, w, h, t) => {
-      def.thumb(pen, w, h, t);
-      // fade it back with a wash of paper (globalAlpha would break layered doodles)
-      pen.ctx.fillStyle = 'rgba(255, 250, 240, 0.68)';
-      pen.ctx.fillRect(0, 0, w, h);
-    };
-    const card = el('div', 'title-card', `<small>${i + 1} / ${this.opts.steps}</small><b>${def.name}</b><span>${sub}</span>`);
+  /** Full or "learning" card with the animated demo. */
+  private async instructionCard(def: GameDef, i: number | null, t: Tier, practised: boolean, goLabel?: string): Promise<'go' | 'practice'> {
+    this.overlay.innerHTML = '';
+    this.clearActions();
+    this.stage.draw = () => {};
+    const full = t === 'new';
+    const counter = i == null ? '' : `<small>${i + 1} / ${this.opts.steps}</small>`;
+    const badge = full && !practised ? '<em>new game!</em>' : '';
+    // explain the countdown once, on the first timed game someone ever plays
+    const clockNote = this.timed && !def.untimed && !practised && firstTime('timer');
+    const card = el('div', `howto brief${full ? ' full' : ''}`, `
+      <div class="howto-head">${counter}<b>${def.name}</b><span>${def.kr}</span>${badge}</div>
+      <div class="howto-demo"></div>
+      ${full
+        ? `<ol class="howto-steps">${def.steps.map((st, k) => `<li style="--d:${250 + k * 140}ms"><i>${k + 1}</i><span>${st}</span></li>`).join('')}</ol>`
+        : `<p class="brief-verb">${def.verb}</p>`}
+      ${clockNote ? `<p class="brief-note">${icons.clock}<span>a <b>timer bar</b> appears up top. finish before it runs out. faster = bonus points!</span></p>` : ''}
+      ${!full ? '<div class="brief-count"><i></i><span>3</span></div>' : ''}`);
     card.style.setProperty('--tc', def.color);
-    card.style.setProperty('--rot', `${(i % 2 ? 1 : -1) * rand(1.5, 3.5)}deg`);
-    const help = el('button', 'help-chip', 'how do I play?') as HTMLButtonElement;
-    if (offerHelp) card.appendChild(help);
     this.overlay.appendChild(card);
-    this.say(sub, 'wow');
+    const demo = new Stage(card.querySelector<HTMLElement>('.howto-demo')!, 'demo-canvas', { fps: 30 });
+    demo.draw = (pen, w, h, tt) => def.demo(pen, w, h, tt);
+    this.demoCleanup = () => {
+      demo.destroy();
+      card.remove();
+      this.demoCleanup = null;
+    };
+    sfx.whoosh(0.25);
+    this.setMood('happy');
+    if (full) {
+      this.say(practised ? "got the hang of it? press <b>I'm ready!</b>" : `new game! watch the little hand. want a <b>free practice</b> go first?`);
+    } else {
+      this.say(`${def.verb} <em>· starting in a sec, tap to go now</em>`);
+    }
+    const labels = full
+      ? [practised ? (goLabel ?? "I'm ready!") : (goLabel ?? "let's go!"), practised ? 'practice again' : 'practice first']
+      : ['go!', 'practice'];
+    let pick: number;
+    if (full) pick = await this.choose(labels, 0);
+    else {
+      // learning: auto-start after a short countdown (tap the card to go now)
+      const num = card.querySelector('.brief-count span')!;
+      const ring = card.querySelector<HTMLElement>('.brief-count i')!;
+      const T = 3500;
+      const t0 = performance.now();
+      ring.style.animationDuration = `${T}ms`;
+      pick = await Promise.race([
+        this.choose(labels, 0),
+        this.until<number>((done) => {
+          const id = setInterval(() => {
+            const left = Math.ceil((T - (performance.now() - t0)) / 1000);
+            num.textContent = String(Math.max(1, left));
+            if (performance.now() - t0 >= T) done(0);
+          }, 100);
+          const tap = (e: Event) => {
+            e.preventDefault();
+            done(0);
+          };
+          card.addEventListener('click', tap);
+          return () => clearInterval(id);
+        }),
+      ]);
+    }
+    this.clearActions();
+    this.demoCleanup?.();
+    return pick === 0 ? 'go' : 'practice';
+  }
+
+  /** Pros get a quick slammed-in card with a "?" in case they forgot. */
+  private async flashCard(def: GameDef, i: number | null): Promise<'go' | 'help'> {
+    this.overlay.innerHTML = '';
+    this.clearActions();
+    this.fadedThumb(def);
+    const counter = i == null ? '' : `<small>${i + 1} / ${this.opts.steps}</small>`;
+    const card = el('div', 'title-card', `${counter}<b>${def.name}</b><span>${def.verb}</span>`);
+    card.style.setProperty('--tc', def.color);
+    card.style.setProperty('--rot', `${((i ?? 0) % 2 ? 1 : -1) * rand(1.5, 3.5)}deg`);
+    const help = el('button', 'help-chip', '? how to play') as HTMLButtonElement;
+    card.appendChild(help);
+    this.overlay.appendChild(card);
+    this.say(def.verb, 'wow');
     sfx.whoosh(0.3);
     const wantHelp = await Promise.race([
-      this.wait(offerHelp ? 1900 : 1300).then(() => false),
+      this.wait(1700).then(() => false),
       this.until<boolean>((done) => {
         card.addEventListener('pointerdown', (e) => {
           if (e.target === help) return;
@@ -453,61 +561,18 @@ export class Shell {
     card.classList.add('bye');
     await this.wait(180);
     card.remove();
+    return wantHelp ? 'help' : 'go';
+  }
+
+  /** "ready… GO!" */
+  private async goFlash() {
+    const g = el('div', 'go-flash', '<b>GO!</b>');
+    this.overlay.appendChild(g);
+    sfx.tone(660, 0.12, { type: 'triangle', vol: 0.2 });
+    sfx.tone(990, 0.18, { type: 'triangle', vol: 0.2, at: sfx.now + 0.09 });
+    await this.wait(520);
+    g.remove();
     this.setMood('idle');
-    return wantHelp;
-  }
-
-  /* ——— tutorials ——— */
-
-  private get who() {
-    return this.opts.player?.name ?? '';
-  }
-
-  /** The animated "how to play" card: demo with a ghost hand + numbered steps. */
-  private showHowTo(def: GameDef) {
-    this.demoCleanup?.();
-    this.stage.draw = () => {};
-    this.overlay.innerHTML = '';
-    const card = el('div', 'howto', `
-      <div class="howto-head"><small>how to play</small><b>${def.name}</b><span>${def.kr}</span></div>
-      <div class="howto-demo"></div>
-      <ol class="howto-steps">${def.steps.map((st, k) => `<li style="--d:${300 + k * 160}ms"><i>${k + 1}</i><span>${st}</span></li>`).join('')}</ol>`);
-    card.style.setProperty('--tc', def.color);
-    this.overlay.appendChild(card);
-    const demo = new Stage(card.querySelector<HTMLElement>('.howto-demo')!, 'demo-canvas', { fps: 30 });
-    demo.draw = (pen, w, h, t) => def.demo(pen, w, h, t);
-    this.demoCleanup = () => {
-      demo.destroy();
-      card.remove();
-      this.demoCleanup = null;
-    };
-  }
-
-  /**
-   * Teach a game: how-to card, then as many free practice tries as they like.
-   * `first` = they've never played it, so we push the practice try.
-   */
-  async teach(def: GameDef, first: boolean, goLabel = "I'm ready!") {
-    this.showHowTo(def);
-    this.setMood('happy');
-    this.say(first ? "new game! watch the hand, then have a <b>free practice go</b>. it won't count." : def.howto);
-    const labels = first ? ['try it (free)', 'skip, I get it'] : [goLabel, 'try it (free)'];
-    let i = await this.choose(labels, 0);
-    this.demoCleanup?.();
-    let action: 'try' | 'go' = (first ? i === 0 : i === 1) ? 'try' : 'go';
-    while (action === 'try') {
-      await this.tryRound(def);
-      i = await this.choose([goLabel, 'practice again', 'how to play'], 0);
-      if (i === 2) {
-        this.showHowTo(def);
-        this.say(def.howto, 'happy');
-        i = await this.choose([goLabel, 'try it (free)'], 0);
-        this.demoCleanup?.();
-        action = i === 0 ? 'go' : 'try';
-      } else action = i === 0 ? 'go' : 'try';
-    }
-    this.overlay.innerHTML = '';
-    markLearned(def.id, this.who);
   }
 
   /** A free, untimed go with training wheels. Doesn't count. */
@@ -539,13 +604,7 @@ export class Shell {
       skip.remove();
       this.roundAc = new AbortController();
     }
-    if (!res) {
-      this.overlay.innerHTML = '';
-      this.stage.draw = () => {};
-      this.setMood('happy');
-      this.say('no worries! you can always practice from the home screen.');
-      return;
-    }
+    if (!res) return;
     const acc = Math.round(clamp(res.score, 0, 100));
     const s = el('div', 'sticker', `<b>${acc}</b><span>practice</span><em>doesn't count</em>`);
     s.style.setProperty('--sc', 'var(--white)');
@@ -553,12 +612,14 @@ export class Shell {
     this.overlay.appendChild(s);
     sfx.pop();
     this.setMood(acc >= 60 ? 'cheer' : 'happy', 2600);
-    this.say(`${res.detail} <em>· that's how it works! ready for real?</em>`);
+    this.say(`${res.detail} <em>· that's how it works!</em>`);
+    await this.wait(1600);
   }
 
   /** Play a list of mini-games. Returns null if the player left. */
   async playSteps(steps: Step[], seed: number | null): Promise<StepResult[] | null> {
     const results: StepResult[] = [];
+    this.combo = 0;
     try {
       for (let i = 0; i < steps.length; i++) {
         const { game, level } = steps[i];
@@ -568,14 +629,7 @@ export class Shell {
         this.look = undefined;
         this.setMood('idle');
         this.clearActions();
-        if (this.timed) {
-          const learned = hasLearned(game.id, this.who);
-          const wantHelp = await this.titleCard(game, i, learned);
-          if (wantHelp || !learned) {
-            await this.teach(game, !learned);
-            await this.titleCard(game, i, false, 'for real now!');
-          }
-        }
+        if (this.timed) await this.briefing(game, i);
         this.timeLeft = null;
         seedRandom(seed == null ? null : (seed * 7919 + (i + 1) * 104729 + level) | 0);
         let res: RoundResult;
@@ -585,12 +639,13 @@ export class Shell {
           seedRandom(null);
           this.hideClock();
         }
+        addPlay(game.id, this.who);
         const acc = Math.round(clamp(res.score, 0, 100));
         const bonus = !this.timed ? 0 : game.untimed ? Math.round((10 * acc) / 100) : Math.round((20 * (this.timeLeft ?? 0) * acc) / 100);
         results.push({ game, acc, bonus, detail: res.detail });
         this.total += acc + bonus;
         this.bumpTotal(this.total);
-        await this.sticker(acc, bonus, res.detail, i === steps.length - 1);
+        await this.sticker(acc, bonus, res.detail, i === steps.length - 1, i);
       }
       this.setProgress(steps.length);
       return results;
@@ -600,23 +655,106 @@ export class Shell {
     }
   }
 
-  private async sticker(acc: number, bonus: number, detail: string, last: boolean) {
+  private async sticker(acc: number, bonus: number, detail: string, last: boolean, i: number) {
     const [, word, sub, color] = STICKERS.find(([min]) => acc >= min)!;
-    const s = el('div', 'sticker', `<b>${acc}</b><span>${word}</span>${bonus ? `<em>+${bonus} speed</em>` : ''}`);
+    const s = el('div', 'sticker', `<b>0</b><span>${word}</span>${bonus ? `<em>+${bonus} speed</em>` : ''}`);
     s.style.setProperty('--sc', color);
     s.style.setProperty('--rot', `${rand(-12, 10).toFixed(1)}deg`);
     this.overlay.appendChild(s);
-    if (acc >= 80) sfx.ding();
-    else if (acc >= 35) sfx.pop();
-    else sfx.boop();
+    // count the number up with rising blips, then the payoff
+    const num = s.querySelector('b')!;
+    const steps = Math.max(1, Math.min(12, Math.round(acc / 8)));
+    for (let k = 1; k <= steps; k++) {
+      num.textContent = String(Math.round((acc * k) / steps));
+      sfx.blip(Math.round((k / steps) * (acc / 4)));
+      await this.wait(28);
+    }
+    num.textContent = String(acc);
+    const w = this.stage.w;
+    if (acc >= 95) {
+      sfx.fanfare();
+      this.banner(acc === 100 ? 'PERFECT!!' : '대박!!');
+      this.burst(w - 62, 62, 34);
+      this.shake();
+    } else if (acc >= 80) {
+      sfx.ding();
+      this.burst(w - 62, 62, 18);
+    } else if (acc >= 35) sfx.pop();
+    else {
+      sfx.boop();
+      this.shake(true);
+    }
+    // hot streak
+    this.combo = acc >= 70 ? this.combo + 1 : 0;
+    if (this.combo >= 2) {
+      const c = el('div', 'combo', `${icons.flame}<b>${this.combo} in a row!</b>`);
+      this.overlay.appendChild(c);
+      sfx.tone(520 + this.combo * 90, 0.16, { type: 'square', vol: 0.06 });
+    }
     const mood: Mood = acc >= 90 ? 'cheer' : acc >= 65 ? 'happy' : acc >= 35 ? 'wow' : 'sad';
     this.setMood(mood, 2600);
-    this.say(`${detail} <em>· ${sub}</em>`);
-    if (this.timed && !last) await Promise.race([this.button('next'), this.wait(2800)]);
+    const rival = this.opts.rival;
+    let vs = '';
+    if (rival && rival.scores[i] != null) {
+      const theirs = rival.scores[i];
+      const mine = acc + bonus;
+      vs = ` <em>· ${esc(rival.name)} got ${theirs} ${mine > theirs ? '(you win this one!)' : mine === theirs ? '(tie!)' : '(they win this one)'}</em>`;
+    }
+    this.say(`${detail} <em>· ${sub}</em>${vs}`);
+    if (this.timed && !last) await Promise.race([this.button('next'), this.wait(rival ? 3400 : 2800)]);
     else await this.button(last ? 'see results' : 'next round');
     this.clearActions();
     s.classList.add('bye');
   }
+
+  /* ——— juice ——— */
+
+  private shake(soft = false) {
+    const wrap = this.stage.canvas.parentElement!;
+    wrap.classList.remove('shake', 'shake-soft');
+    void wrap.offsetWidth;
+    wrap.classList.add(soft ? 'shake-soft' : 'shake');
+    setTimeout(() => wrap.classList.remove('shake', 'shake-soft'), 450);
+  }
+
+  banner(text: string) {
+    const b = el('div', 'banner', `<b>${text}</b>`);
+    this.overlay.appendChild(b);
+    setTimeout(() => b.remove(), 1500);
+  }
+
+  /** Doodle particles flying out from (x, y) on the effects layer. */
+  burst(x: number, y: number, n: number) {
+    const cols = [...PASTELS, BLUSH];
+    for (let k = 0; k < n; k++) {
+      const a = rand(0, Math.PI * 2), v = rand(140, 420);
+      this.particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 120, r: rand(0, 6), vr: rand(-6, 6), kind: k % 3, c: pick(cols), s: rand(5, 10), life: rand(0.7, 1.2) });
+    }
+    if (!this.fx.draw) this.fx.draw = this.drawFx;
+    this.fx.boost(1600);
+  }
+
+  private drawFx = (pen: Pen, _w: number, _h: number, _t: number, dt: number) => {
+    const ps = this.particles;
+    for (let k = ps.length - 1; k >= 0; k--) {
+      const p = ps[k];
+      p.life -= dt;
+      if (p.life <= 0) {
+        ps.splice(k, 1);
+        continue;
+      }
+      p.vy += 700 * dt;
+      p.vx *= 0.985;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.r += p.vr * dt;
+      const al = Math.min(1, p.life * 2);
+      if (p.kind === 0) pen.star(p.x, p.y, p.s, { fill: p.c, width: 1.8, seed: 700 + k, alpha: al }, p.r);
+      else if (p.kind === 1) pen.circle(p.x, p.y, p.s * 0.5, { fill: p.c, width: 1.8, seed: 700 + k, alpha: al });
+      else pen.line(p.x - Math.cos(p.r) * p.s, p.y - Math.sin(p.r) * p.s, p.x + Math.cos(p.r) * p.s, p.y + Math.sin(p.r) * p.s, { stroke: p.c === BUTTER ? PEACH : p.c, width: 3, seed: 700 + k, alpha: al });
+    }
+    if (!ps.length) this.fx.draw = null; // canvas was just cleared; stop drawing until the next burst
+  };
 
   /* ——— finale helpers ——— */
 

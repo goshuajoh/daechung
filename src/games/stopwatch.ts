@@ -3,7 +3,7 @@ import type { Pen } from '../lib/pen';
 import { sfx } from '../lib/audio';
 import { AQUA, BERRY, INK, PINK, WHITE } from '../lib/palette';
 import { clamp, easeOutBack, pick, rand, randInt } from '../lib/rng';
-import { drawHand, loop, span } from '../lib/hand';
+import { drawHand, drawPrompt, loop, span } from '../lib/hand';
 
 /** Seconds of the watch you get to see before it goes dark. */
 const PEEK = 1.0;
@@ -111,20 +111,21 @@ export const stopwatch: GameDef = {
     else g.say(`tap to start, tap again at exactly <b>${label} seconds</b>.`, 'focus');
     const stage = g.stage;
     stage.draw = (pen, w, h, t) => {
-      const r = Math.min(w * 0.34, h * 0.3, 150);
-      const cx = w / 2, cy = h * 0.55;
+      const top = 104;
+      const r = Math.max(56, Math.min(w * 0.3, (h - top - 64) / 2.45, 140));
+      const cx = w / 2, cy = top + r * 1.42;
       const el = phase === 'run' ? (performance.now() - t0) / 1000 : phase === 'done' ? stoppedAt : 0;
       const cover = phase === 'run' ? clamp((el - peek) / 0.35, 0, 1) : 0;
-      pen.text(`${label}s`, w / 2, 42, { size: 46 });
+      drawPrompt(pen, w, `${label}s`, 'stop the watch at exactly');
       drawWatch(pen, cx, cy, r, el, cover, t, phase === 'done' ? T : undefined);
       const readout = phase === 'ready' ? '0.00' : phase === 'run' && el > peek ? '?.??' : el.toFixed(2);
-      if (phase !== 'done') pen.text(readout, cx, cy + r + 34, { size: 30, alpha: 0.8 });
+      if (phase === 'ready') pen.text('tap to start', cx, cy + r + 30, { size: 24, alpha: 0.55 + Math.sin(t * 4) * 0.25 });
+      else if (phase !== 'done') pen.text(readout, cx, cy + r + 30, { size: 30, alpha: 0.8 });
       else {
         const pop = easeOutBack(clamp((t - doneAt) / 0.4, 0, 1));
-        pen.text(`you: ${el.toFixed(2)}s`, cx, cy + r + 34, { size: Math.max(1, 30 * pop), outline: WHITE });
+        pen.text(`you: ${el.toFixed(2)}s`, cx, cy + r + 30, { size: Math.max(1, 30 * pop), outline: WHITE });
       }
       if (phase === 'ready') {
-        pen.text('tap to start', cx, cy - r - 50, { size: 22, font: 'gaegu', alpha: 0.5 + Math.sin(t * 4) * 0.25 });
         if (t - born > 1) drawHand(pen, cx + r * 0.25, cy + r * 0.35, { press: Math.sin(t * 4) * 0.5 + 0.5, ripple: (t * 1.2) % 1, alpha: 0.9 });
       }
     };

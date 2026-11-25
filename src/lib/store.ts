@@ -18,33 +18,3 @@ export function saveScore(id: string, score: number): boolean {
   } catch { /* storage blocked: still fun */ }
   return true;
 }
-
-/* ——— tutorials: remember which games someone has already learned ——— */
-const SEEN = 'daechung:learned';
-
-function learned(): Record<string, 1> {
-  try {
-    return JSON.parse(localStorage.getItem(SEEN) || '{}');
-  } catch {
-    return {};
-  }
-}
-
-/** `who` lets party players each get their own first-time tutorial. */
-export function hasLearned(gameId: string, who = ''): boolean {
-  return !!learned()[`${who}|${gameId}`];
-}
-
-export function markLearned(gameId: string, who = '') {
-  try {
-    const all = learned();
-    all[`${who}|${gameId}`] = 1;
-    localStorage.setItem(SEEN, JSON.stringify(all));
-  } catch { /* ignore */ }
-}
-
-export function forgetTutorials() {
-  try {
-    localStorage.removeItem(SEEN);
-  } catch { /* ignore */ }
-}

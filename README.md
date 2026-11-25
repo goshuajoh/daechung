@@ -12,18 +12,35 @@ Ten tiny hand-drawn mini-games that test how good your eyeball is, hosted by **K
 
 ## Ways to play
 
-- **Daily 대충**: all 10 mini-games back to back, each on a countdown. The puzzles come from today's date, so everyone gets the same run.
+- **Daily 대충**: all 10 mini-games back to back, each on a countdown. The puzzles come from today's date, so everyone gets the same run, which is what makes challenge links work.
 - **Quick Run**: same format, random every time.
 - **Party**: pass the phone. 2–8 players get the identical run (5 or 10 games), then there's a podium and a "closest eyeball per game" list.
 - **Practice**: any single game, 5 rounds that get harder, no clock.
 
 In runs, each game scores up to **100 for accuracy + 20 speed bonus** (how much of the countdown was left).
 
-### First time? It teaches you
+![briefing tiers, visual metronome, challenge, level-up and the share card](docs/ux-preview.png)
 
-The first time you meet a game (per device, or per player name in Party), you get a **how-to card**: a looping demo where a cartoon hand does the moves, plus three short numbered steps. Then you can take a **free practice try** that doesn't count: no timer, easier setup, and *training wheels* (the live angle / % / time is shown, a dashed circle to trace, the target colour stays in the corner, and so on). Returning players get a small "how do I play?" button on each title card instead. If someone stalls, a hand appears and points at what to touch. "show tutorials again" on the home screen resets all of this.
+### Learning a game (Bishi Bashi style)
 
-![how-to card, a practice try with training wheels, and the help chip](docs/tutorial-preview.png)
+Before every game there's an instruction card. How much it says depends on how many times you've played that game (per device, or per player name in Party):
+
+- **new**: looping demo with a cartoon hand plus three numbered steps. A free **practice** try is offered but never forced. It's untimed, doesn't count, and has training wheels: the live angle / % / time, a dashed circle to trace, the target colour pinned in the corner, beat guide rings.
+- **learning** (1–2 plays): the demo and one line, then it auto-starts after a 3-second bar (tap to go now).
+- **pro** (3+): a quick flash card with a "? how to play" button.
+
+On top of that, a hand points at what to touch if you stall, every target has a plain-words caption ("make this angle", "fill the glass this full"), and the timer bar has a clock and a seconds count. The very first timed card also explains it.
+
+### Why you come back tomorrow
+
+- **XP & levels**: every point you score is XP. Levelling up unlocks hats for Kongi: ribbon, beanie, party hat, headphones, chef hat, flower crown, cap, crown, halo. Tap your level on the home screen to open the closet.
+- **Daily streak**: a flame counter plus a 7-day strip on the Daily tile.
+- **Challenge a friend**: after the Daily, "challenge friends" shares a picture of your result plus a link with your scores packed in. Your friend gets the same puzzles, sees your score after each game, and ends on a head-to-head with W/L per game. No server involved.
+- **Juice**: scores count up, 95+ gets a PERFECT banner with a burst and a screen shake, and 70+ rounds in a row build a combo.
+
+### Sound
+
+Keep the Beat flashes the whole stage and pulses rings on every beat, so it works with the sound off or in a noisy room. Android phones also vibrate.
 
 ## The games
 

@@ -3,7 +3,7 @@ import type { Pen, Pt } from '../lib/pen';
 import { sfx } from '../lib/audio';
 import { BERRY, BUTTER, INK, LEAF, PEACH, PINK, WHITE } from '../lib/palette';
 import { clamp, easeInOut, easeOutBack, lerp, pick, rand, randInt } from '../lib/rng';
-import { drawHand, drawPill, loop, span } from '../lib/hand';
+import { drawHand, drawPill, drawPrompt, loop, span } from '../lib/hand';
 
 interface Food {
   name: string;
@@ -237,7 +237,7 @@ export const cut: GameDef = {
 
     stage.draw = (pen, w, h, t) => {
       const { len, hgt, x0, y } = layout(w, h);
-      pen.text(`${target}%`, w / 2, 42, { size: 46 });
+      drawPrompt(pen, w, `${target}%`, 'make the LEFT piece this big');
       // shadow
       pen.ellipse(x0 + len / 2, y + hgt / 2 + 12, len * 0.52, 9, { fill: 'rgba(59,44,40,0.1)', stroke: null, shift: [0, 0], seed: 140 });
       const cutX = x0 + len * knifeK;
@@ -245,6 +245,12 @@ export const cut: GameDef = {
       if (!chopAt) {
         food.body(pen, x0, y, len, hgt);
         if (aimed) pen.line(cutX, y - hgt / 2 - 6, cutX, y + hgt / 2 + 8, { stroke: BERRY, width: 2, dash: [5, 6], seed: 141 });
+        // bracket under the food showing exactly what "the left piece" means
+        const by = y + hgt / 2 + 24;
+        pen.line(x0, by, cutX, by, { stroke: BERRY, width: 2.5, seed: 142, rough: 0.4 });
+        pen.line(x0, by - 7, x0, by + 7, { stroke: BERRY, width: 2.5, seed: 143 });
+        pen.line(cutX, by - 7, cutX, by + 7, { stroke: BERRY, width: 2.5, seed: 144 });
+        pen.text('left piece', (x0 + cutX) / 2, by + 18, { size: 17, font: 'gaegu', color: BERRY });
         drawKnife(pen, cutX, y - hgt / 2 - 8, aimed ? 0 : 10 + Math.sin(t * 4) * 6);
         if (!aimed) pen.text('move me', cutX + 60, y - hgt / 2 - 70, { size: 20, font: 'gaegu', alpha: 0.6 });
         const handleY = y - hgt / 2 - 8 - 64 - 24 - (aimed ? 0 : 10 + Math.sin(t * 4) * 6);

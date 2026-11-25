@@ -25,6 +25,11 @@ function heardAt(ctx: AudioContext, perfMs: number): number {
 
 interface Note { x: number; y: number; t0: number; side: number }
 
+/** Haptic tick where supported (Android). iOS Safari has no vibration API. */
+const buzz = (ms: number) => {
+  if ('vibrate' in navigator) navigator.vibrate(ms);
+};
+
 function drawNote(pen: Pen, x: number, y: number, s: number, alpha: number, seed: number) {
   pen.ellipse(x, y, s * 0.55, s * 0.4, { fill: INK, stroke: null, shift: [0, 0], alpha, seed }, -0.4);
   pen.line(x + s * 0.48, y - s * 0.1, x + s * 0.5, y - s * 1.6, { width: 2.5, alpha, seed: seed + 1 });
@@ -98,7 +103,7 @@ export const beat: GameDef = {
     }
   },
 
-  steps: ['listen to the drum beat', 'when the drum <b>stops</b>, keep tapping the same beat', 'tap anywhere on the screen (or any key)'],
+  steps: ['listen to the drum (or watch it flash)', 'when the drum <b>stops</b>, keep tapping the same beat', 'tap anywhere on the screen (or any key)'],
 
   demo(pen, w, h, t) {
     const iv = 0.5, D = iv * 8 + 1.4;
@@ -142,6 +147,7 @@ export const beat: GameDef = {
       let done = false;
       let lastBeat = -1;
       let lastHit = -10;
+      let lastMachine = -10;
       const taps: number[] = []; // audio times (counted ones)
       const notes: Note[] = [];
 
@@ -162,10 +168,21 @@ export const beat: GameDef = {
         if (started && bi >= 0 && bi < plan.listen && bi !== lastBeat) {
           lastBeat = bi;
           lastHit = t;
+          lastMachine = t;
+          buzz(25);
           g.bop = 1;
           notes.push({ x: w / 2, y: h * 0.46, t0: t, side: bi % 2 ? 1 : -1 });
         }
         const hit = Math.exp(-(t - lastHit) * 9);
+        // visual metronome: the whole stage blinks on each beat, so it works with the sound off
+        const mHit = Math.exp(-(t - lastMachine) * 6);
+        if (mHit > 0.02) {
+          pen.ctx.save();
+          pen.ctx.globalAlpha = 0.24 * mHit;
+          pen.ctx.fillStyle = PINK;
+          pen.ctx.fillRect(0, 0, w, h);
+          pen.ctx.restore();
+        }
 
         // dots row
         const total = plan.mode === 'keep' ? plan.listen + YOUR_TAPS : tapBeat + 1;
@@ -183,7 +200,8 @@ export const beat: GameDef = {
             continue;
           }
           const ghost = mine && plan.mode === 'silent';
-          pen.circle(x, y, ghost ? dr * 0.55 : dr, { fill, width: ghost ? 1.8 : 2.4, seed: 80 + i, alpha: ghost ? 0.35 : 1, dash: ghost ? [3, 4] : undefined });
+          const pulse = !mine && i === bi ? 1 + 0.7 * mHit : 1;
+          pen.circle(x, y, (ghost ? dr * 0.55 : dr) * pulse, { fill, width: ghost ? 1.8 : 2.4, seed: 80 + i, alpha: ghost ? 0.35 : 1, dash: ghost ? [3, 4] : undefined });
         }
         // training wheels: a ring pulses on each beat you should tap
         if (g.tutorial && started && !done && plan.mode === 'keep' && bi >= plan.listen && bi < plan.listen + YOUR_TAPS) {
@@ -200,6 +218,15 @@ export const beat: GameDef = {
         // drum
         const r = Math.min(w * 0.22, h * 0.2, 120);
         drawDrum(pen, w / 2, h * 0.46, r, hit, hit);
+        const since = t - lastMachine;
+        if (since < 0.6) {
+          for (let k = 0; k < 2; k++) {
+            const kk = since / 0.6 + k * 0.3;
+            if (kk > 1) continue;
+            const sc = 1.15 + kk * 0.9;
+            pen.ellipse(w / 2, h * 0.46, r * sc, r * 0.36 * sc, { stroke: BERRY, width: 4 * (1 - kk) + 0.5, alpha: 1 - kk, seed: 120 + k });
+          }
+        }
         // nudge: show a tapping hand when it's your turn and you haven't tapped
         if (started && !done && plan.mode === 'keep' && bi >= plan.listen && !taps.length) {
           const ph = bf - bi;
@@ -220,7 +247,10 @@ export const beat: GameDef = {
         // countdown before the first beat
         if (!started) return;
         if (bf < 0) pen.text('get ready…', w / 2, h * 0.82, { size: 26, alpha: 0.7 });
-        else if (bi < plan.listen) pen.text('listen', w / 2, h * 0.82, { size: 26, alpha: 0.7, rot: Math.sin(t * 6) * 0.04 });
+        else if (bi < plan.listen) {
+          pen.text('listen…', w / 2, h * 0.8, { size: 26, alpha: 0.75, rot: Math.sin(t * 6) * 0.04 });
+          pen.text("can't hear it? watch the drum flash", w / 2, h * 0.8 + 26, { size: 17, font: 'gaegu', alpha: 0.6 });
+        }
         else if (!done) pen.text(plan.mode === 'keep' ? 'your turn!' : 'shh… counting…', w / 2, h * 0.82, { size: 28, color: BERRY });
 
         if (done) drawReveal(pen, w, h);
@@ -243,6 +273,7 @@ export const beat: GameDef = {
         const onTap = (perfMs: number) => {
           const at = heardAt(ctx, perfMs);
           sfx.tap();
+          buzz(12);
           lastHit = stage.time;
           g.bop = 1;
           if (at < countFrom || taps.length >= needed) return;

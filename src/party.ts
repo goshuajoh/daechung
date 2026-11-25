@@ -1,7 +1,7 @@
 import { Stage } from './lib/stage';
 import { drawKongi, type Mood } from './lib/kongi';
 import { Shell, el, esc, muteButton, type GameDef, type StepResult } from './lib/shell';
-import { buildRun, breakdown, sum } from './modes';
+import { buildRun, sum, tiles } from './modes';
 import { icons } from './lib/icons';
 import { sfx } from './lib/audio';
 import { BUTTER, INK, LILAC, MINT, PEACH, PINK, SKY, WHITE } from './lib/palette';
@@ -178,7 +178,7 @@ export function startParty(app: HTMLElement, games: GameDef[], exit: () => void)
     const card = g.card(`
       <div class="final-label">${esc(p.name)} scored</div>
       <div class="final-total"><b>0</b><span>/${steps.length * 120}</span></div>
-      ${breakdown(results)}`);
+      ${tiles(results)}`);
     g.countUp(card.querySelector('.final-total b')!, p.total);
     g.confetti(p.total / (steps.length * 120));
     g.setMood('happy');

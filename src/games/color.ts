@@ -3,7 +3,7 @@ import type { Pen, Pt } from '../lib/pen';
 import { sfx } from '../lib/audio';
 import { BERRY, INK, ROSE, WHITE } from '../lib/palette';
 import { clamp, easeInOut, easeOutBack, lerp, rand } from '../lib/rng';
-import { drawHand, drawPill, loop, span } from '../lib/hand';
+import { drawHand, drawPill, drawPrompt, loop, span } from '../lib/hand';
 
 const hsl = (h: number, s: number, l: number) => `hsl(${((h % 360) + 360) % 360} ${s}% ${l}%)`;
 const hueDiff = (a: number, b: number) => {
@@ -132,7 +132,7 @@ export const color: GameDef = {
       if (phase === 'memo') {
         drawJelly(pen, cx, cy, r1 * 0.8, hsl(target, s, l), t);
         const left = Math.max(0, memo - k);
-        pen.text(left.toFixed(1), cx, 42, { size: 36 });
+        drawPrompt(pen, w, `${left.toFixed(1)}s`, 'remember this colour!');
         return;
       }
       if (phase === 'gap') {
