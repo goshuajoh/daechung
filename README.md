@@ -15,7 +15,7 @@ Fifteen tiny hand-drawn mini-games that test how good your eyeball is, hosted by
 - **Daily 대충**: 10 of the 15 mini-games back to back, each on a countdown. The mix and the puzzles come from the daily number, so everyone gets the same run, which is what makes challenge links work. A friend's link from a day ahead or behind (timezones) still plays their puzzles.
 - **Quick Run**: same format, a random 10 every time.
 - **Party**: pass the phone. 2–8 players get the identical run (5 or 10 games), then there's a podium and a "closest eyeball per game" list.
-- **Survival**: 3 hearts. Rounds keep coming (every game once before any repeats, harder every 3 rounds) and any round under 50 breaks a heart. Your score is how many rounds you lasted; the share card shows the last ten.
+- **Survival**: 3 hearts. Rounds keep coming (every game once before any repeats, harder every 3 rounds) and any round under 50 breaks a heart. Your score is how many rounds you lasted; the share card shows the last ten, and its link challenges a friend ("Mina lasted 12 rounds"), with a "passed Mina!" banner the moment you outlast them.
 - **Practice**: any single game, 5 rounds that get harder, no clock.
 
 In runs, each game scores up to **100 for accuracy + 20 speed bonus** (how much of the countdown was left).

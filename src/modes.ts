@@ -460,7 +460,34 @@ export function drawHearts(pen: Pen, w: number, h: number, t: number) {
   }
 }
 
-export function startSurvival(app: HTMLElement, games: GameDef[], exit: () => void): () => void {
+/** A Survival result to beat, carried in the share link: #/survival?vs=<code>. */
+export interface SurvivalRival {
+  name: string;
+  rounds: number;
+}
+
+const b64u = {
+  enc: (s: string) => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
+  dec: (s: string) => decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))),
+};
+
+export function survivalLink(name: string, rounds: number) {
+  return `${location.origin}${location.pathname}#/survival?vs=${b64u.enc(JSON.stringify([1, name.slice(0, 14), rounds]))}`;
+}
+
+export function decodeSurvival(code: string | null): SurvivalRival | null {
+  if (!code) return null;
+  try {
+    const [v, name, rounds] = JSON.parse(b64u.dec(code));
+    if (v !== 1 || typeof name !== 'string') return null;
+    const n = Math.round(Number(rounds));
+    return n >= 0 && n <= 60 ? { name: name.slice(0, 14) || 'a friend', rounds: n } : null;
+  } catch {
+    return null;
+  }
+}
+
+export function startSurvival(app: HTMLElement, games: GameDef[], exit: () => void, rival: SurvivalRival | null = null): () => void {
   let g: Shell | null = null;
   const play = async () => {
     g?.destroy();
@@ -485,9 +512,14 @@ export function startSurvival(app: HTMLElement, games: GameDef[], exit: () => vo
         const bob = Math.sin(t * 3 + k) * 4;
         heart(pen, w / 2 + (k - 1) * r * 2.4, h * 0.48 + bob, r, BERRY, 3200 + k);
       }
-      pen.text(best ? `your best: ${best} rounds` : 'how far can you go?', w / 2, h * 0.48 + r * 2.2, { size: 24, font: 'gaegu' });
+      pen.text(rival ? `beat ${rival.name}: ${rival.rounds} rounds` : best ? `your best: ${best} rounds` : 'how far can you go?', w / 2, h * 0.48 + r * 2.2, { size: 24, font: 'gaegu', color: rival ? BERRY : undefined });
     };
-    shell.say(`you have <b>${LIVES} hearts</b>. score under <b>${SURVIVE_MIN}</b> on a round and you lose one. it gets harder as you go!`, 'happy');
+    shell.say(
+      rival
+        ? `<b>${esc(rival.name)}</b> lasted <b>${rival.rounds} round${rival.rounds === 1 ? '' : 's'}</b>. you have ${LIVES} hearts; under <b>${SURVIVE_MIN}</b> breaks one. can you last longer?`
+        : `you have <b>${LIVES} hearts</b>. score under <b>${SURVIVE_MIN}</b> on a round and you lose one. it gets harder as you go!`,
+      rival ? 'cheer' : 'happy',
+    );
     try {
       await shell.button("let's go!");
     } catch {
@@ -495,11 +527,16 @@ export function startSurvival(app: HTMLElement, games: GameDef[], exit: () => vo
     }
     let lives = LIVES;
     holdStamps(true);
-    const results = await shell.playSteps(steps, null, (r) => {
+    const results = await shell.playSteps(steps, null, (r, i) => {
       if (r.acc < SURVIVE_MIN) {
         lives--;
         shell.setLives(lives, true);
         sfx.boop();
+      }
+      // the moment you outlast the friend who sent the link
+      if (rival && lives > 0 && i + 1 === rival.rounds + 1) {
+        shell.banner(`passed ${rival.name}!`);
+        sfx.fanfare();
       }
       return lives <= 0;
     });
@@ -522,7 +559,15 @@ export function startSurvival(app: HTMLElement, games: GameDef[], exit: () => vo
     shell.countUp(card.querySelector('.final-total b')!, rounds);
     shell.confetti(Math.min(1, rounds / 15));
     shell.setMood(rounds >= 10 ? 'cheer' : rounds >= 5 ? 'happy' : 'sad');
-    const comment = outOfGames
+    const won = rival ? rounds > rival.rounds : false;
+    if (rival) shell.banner(won ? 'YOU WIN!' : rounds === rival.rounds ? 'TIE!' : 'SO CLOSE…');
+    const comment = rival
+      ? won
+        ? `you outlasted <b>${esc(rival.name)}</b> (${rival.rounds} rounds)! send it back.`
+        : rounds === rival.rounds
+          ? `a tie with <b>${esc(rival.name)}</b>! rematch?`
+          : `<b>${esc(rival.name)}</b> lasted ${rival.rounds - rounds} more round${rival.rounds - rounds === 1 ? '' : 's'}. again?`
+      : outOfGames
       ? 'you played every round I had and never ran out of hearts. who ARE you?'
       : isBest && rounds > 1
         ? `a new record: <b>${rounds} rounds</b>!`
@@ -531,6 +576,7 @@ export function startSurvival(app: HTMLElement, games: GameDef[], exit: () => vo
           : 'the hearts go fast. one more go?';
     shell.say(comment);
     if (rounds >= 10) earn('survivor');
+    if (won) earn('rival');
     try {
       await awardXp(shell, card, total);
     } catch {
@@ -546,17 +592,26 @@ export function startSurvival(app: HTMLElement, games: GameDef[], exit: () => vo
         return;
       }
       if (i === 0) {
-        const name = playerName();
+        let name = playerName();
+        if (!name) {
+          try {
+            name = (await askName(shell)) ?? '';
+          } catch {
+            return;
+          }
+        }
+        const link = survivalLink(name || 'a friend', rounds);
         const res = await shareResult(
-          { title: 'survival', total: rounds, max: 0, unit: rounds === 1 ? 'round' : 'rounds', rank: outOfGames ? 'Survived Everything' : surviveRank(rounds), results, streak: 0, hat: hat(), body: body(), name },
-          `대충 survival: I lasted ${rounds} round${rounds === 1 ? '' : 's'} “${surviveRank(rounds)}”. how far can you get?`,
-          `${location.origin}${location.pathname}#/survival`,
+          { title: 'survival', total: rounds, max: 0, unit: rounds === 1 ? 'round' : 'rounds', rank: outOfGames ? 'Survived Everything' : surviveRank(rounds), results, streak: 0, hat: hat(), body: body(), name, rival: rival ? { name: rival.name, total: rival.rounds } : null },
+          `대충 survival: I lasted ${rounds} round${rounds === 1 ? '' : 's'} “${surviveRank(rounds)}”. can you last longer?`,
+          link,
         );
+        if (res === 'shared' || res === 'copied') earn('gift');
         if (res === 'copied') shell.say('copied! paste it in the group chat.', 'happy');
         else if (res === 'shared') shell.say('sent! now we wait…', 'cheer');
         else if (res === 'failed' || res === 'saved') {
           try {
-            await showLink(shell, `${location.origin}${location.pathname}#/survival`);
+            await showLink(shell, link);
           } catch {
             return;
           }

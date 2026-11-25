@@ -1,7 +1,7 @@
 import './style.css';
 import { renderHome } from './home';
 import type { GameDef } from './lib/shell';
-import { startPractice, startRun, startSurvival } from './modes';
+import { decodeSurvival, startPractice, startRun, startSurvival } from './modes';
 import { startParty } from './party';
 import { renderProfile } from './profile';
 import { decodeChallenge, isMine, rememberFriend, setPending } from './challenge';
@@ -46,7 +46,7 @@ function route() {
   window.scrollTo(0, 0);
   if (path === 'daily' || path === 'run') cleanup = startRun(app, games, path === 'daily' ? 'daily' : 'quick', home);
   else if (path === 'party') cleanup = startParty(app, games, home);
-  else if (path === 'survival') cleanup = startSurvival(app, games, home);
+  else if (path === 'survival') cleanup = startSurvival(app, games, home, decodeSurvival(new URLSearchParams(query ?? '').get('vs')));
   else if (path === 'me') cleanup = renderProfile(app, games, home);
   else if (path.startsWith('practice/')) {
     const game = games.find((g) => g.id === path.slice(9));
