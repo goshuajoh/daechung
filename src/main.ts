@@ -49,3 +49,8 @@ window.addEventListener('hashchange', route);
 // Canvas text needs the fonts loaded up front (the DOM alone won't trigger them in time).
 const fonts = Promise.all([document.fonts.load('20px Jua'), document.fonts.load('700 20px Gaegu'), document.fonts.load('20px Jua', '대충')]);
 Promise.race([fonts, new Promise((r) => setTimeout(r, 2500))]).finally(route);
+
+// Offline + home-screen install (production only; the dev server shouldn't be cached).
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => void navigator.serviceWorker.register('./sw.js').catch(() => {}));
+}

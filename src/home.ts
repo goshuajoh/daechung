@@ -4,6 +4,7 @@ import { getBest } from './lib/store';
 import { dayScore, forgetTutorials, hat, levelOf, setHat, streak, xp } from './lib/progress';
 import { HATS } from './lib/hats';
 import { getPending } from './challenge';
+import { canPrompt, isIOS, onInstallChange, promptInstall, standalone } from './install';
 import { icons } from './lib/icons';
 import { esc, muteButton, type GameDef } from './lib/shell';
 import { sfx } from './lib/audio';
@@ -124,6 +125,7 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
     <footer class="home-foot">
       <span>drawn with wobbly lines · scores stay on this device ·</span>
       <button class="link-btn reset-tut">show tutorials again</button>
+      <span class="install-slot"></span>
     </footer>`;
   parent.appendChild(root);
   root.querySelector('.home-foot')!.prepend(muteButton());
@@ -133,6 +135,22 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
     sfx.pop();
     reset.textContent = 'done! every game will teach you again';
   });
+
+  // install: a button where the browser supports it, a tip on iPhone Safari
+  const slot = root.querySelector<HTMLElement>('.install-slot')!;
+  const renderInstall = () => {
+    slot.innerHTML = '';
+    if (standalone()) return;
+    if (canPrompt()) {
+      const b = document.createElement('button');
+      b.className = 'link-btn';
+      b.textContent = '· add 대충 to your home screen';
+      b.addEventListener('click', () => void promptInstall());
+      slot.appendChild(b);
+    } else if (isIOS()) slot.textContent = '· tip: Share → Add to Home Screen to keep me on your phone';
+  };
+  renderInstall();
+  const offInstall = onInstallChange(renderInstall);
 
   const stages: Stage[] = [];
   // Home is ambient art: low frame rates (it reads as stop-motion, which suits the doodles)
@@ -192,6 +210,7 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
   });
 
   return () => {
+    offInstall();
     stages.forEach((s) => s.destroy());
     document.querySelector<HTMLButtonElement>('.closet .done')?.click();
     root.remove();

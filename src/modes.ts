@@ -6,7 +6,8 @@ import { icons } from './lib/icons';
 import { seedRandom, shuffle } from './lib/rng';
 import { BUTTER, LILAC, WHITE } from './lib/palette';
 import { sfx } from './lib/audio';
-import { addXp, hat, levelOf, playerName, recordDaily, setHat, setPlayerName, xp, type LevelInfo } from './lib/progress';
+import { addXp, firstTime, hat, levelOf, playerName, recordDaily, setHat, setPlayerName, xp, type LevelInfo } from './lib/progress';
+import { isIOS, standalone } from './install';
 import { hatForLevel } from './lib/hats';
 import { challengeLink, getPending, setPending, type Challenge } from './challenge';
 import { shareResult } from './share';
@@ -271,6 +272,10 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
       await awardXp(shell, card, total);
     } catch {
       return;
+    }
+    // after the first finished daily on an iPhone browser, suggest keeping 대충 on the home screen
+    if (kind === 'daily' && isIOS() && !standalone() && firstTime('a2hs')) {
+      shell.say('pro tip: tap <b>Share → Add to Home Screen</b> and I\'ll be one tap away tomorrow.', 'happy');
     }
     const text = `대충 ${label}: ${total}/${max} “${runRank(ratio)}”${rival ? ` (vs ${rival.name} ${rival.total})` : ''}`;
     for (;;) {
