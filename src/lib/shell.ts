@@ -140,8 +140,7 @@ export class Shell {
   private clockLive = false;
   private clockT0 = 0;
   private clockDur = 0;
-  private clockRaf = 0;
-  private clockSecs = 0;
+  private clockTimer = 0;
   private clockPausedAt = 0;
   private lastSec = 0;
   private clockDone: (() => void) | null = null;
@@ -392,7 +391,8 @@ export class Shell {
 
   /* ——— countdown ——— */
 
-  /** Starts the countdown bar; resolves when time runs out. Never resolves outside runs. */
+  /** Starts the countdown bar; resolves when time runs out. Never resolves outside runs.
+   *  The bar itself is a CSS transition (runs on the compositor); JS only wakes once a second. */
   clock(seconds: number): Promise<void> {
     if (!this.timed || this.tutorial) return new Promise(() => {});
     // the very first time someone plays a game they get extra time
@@ -400,7 +400,6 @@ export class Shell {
     this.stopClock();
     this.clockT0 = performance.now();
     this.clockDur = seconds * 1000;
-    this.clockSecs = seconds;
     this.clockPausedAt = 0;
     this.clockLive = true;
     this.timeLeft = null;
@@ -408,33 +407,58 @@ export class Shell {
     this.timebar.classList.remove('warn');
     this.timesec.textContent = `${Math.ceil(seconds)}s`;
     this.lastSec = Math.ceil(seconds);
+    this.setFill(1, 0);
     return new Promise<void>((resolve) => {
       this.clockDone = resolve;
-      this.clockRaf = requestAnimationFrame(this.clockTick);
+      this.runClock();
     });
   }
 
+  /** Bar at `frac`, then (if `ms` > 0) sliding linearly to empty over `ms`. */
+  private setFill(frac: number, ms: number) {
+    const f = this.timefill;
+    f.style.transition = 'none';
+    f.style.transform = `scaleX(${frac})`;
+    if (ms <= 0) return;
+    void f.offsetWidth; // commit the start position before animating
+    f.style.transition = `transform ${ms}ms linear`;
+    f.style.transform = 'scaleX(0)';
+  }
+
+  private clockLeftMs(at = performance.now()) {
+    return Math.max(0, this.clockDur - (at - this.clockT0));
+  }
+
+  /** Animate the bar from wherever it is now, and wake at each whole second. */
+  private runClock() {
+    const ms = this.clockLeftMs();
+    this.setFill(ms / this.clockDur, ms);
+    this.clockTick();
+  }
+
   private clockTick = () => {
+    clearTimeout(this.clockTimer);
     if (!this.clockLive || this.signal.aborted) return;
-    const left = Math.max(0, 1 - (performance.now() - this.clockT0) / this.clockDur);
-    this.timefill.style.transform = `scaleX(${left})`;
-    const sec = Math.ceil(left * this.clockSecs);
+    const ms = this.clockLeftMs();
+    const sec = Math.ceil(ms / 1000);
     if (sec !== this.lastSec) {
       this.lastSec = sec;
       this.timesec.textContent = `${sec}s`;
-      if (left < 0.34) {
+      if (ms < this.clockDur * 0.34 && sec > 0) {
         this.timebar.classList.add('warn');
         sfx.click();
       }
     }
-    if (left <= 0) {
+    if (ms <= 0) {
       this.clockLive = false;
       this.timeLeft = 0;
+      this.setFill(0, 0);
       sfx.boop();
       this.clockDone?.();
       return;
     }
-    this.clockRaf = requestAnimationFrame(this.clockTick);
+    // next whole second (or the end)
+    this.clockTimer = window.setTimeout(this.clockTick, Math.max(4, ms - (sec - 1) * 1000 + 2));
   };
 
   /** Freeze the countdown (e.g. while the "leave?" question is open). */
@@ -442,7 +466,9 @@ export class Shell {
     if (!this.clockLive) return;
     this.clockLive = false;
     this.clockPausedAt = performance.now();
-    cancelAnimationFrame(this.clockRaf);
+    clearTimeout(this.clockTimer);
+    this.setFill(this.clockLeftMs(this.clockPausedAt) / this.clockDur, 0);
+    this.timebar.classList.remove('warn'); // stop the shake while paused
   }
 
   private resumeClock() {
@@ -450,19 +476,20 @@ export class Shell {
     this.clockT0 += performance.now() - this.clockPausedAt;
     this.clockPausedAt = 0;
     this.clockLive = true;
-    this.clockRaf = requestAnimationFrame(this.clockTick);
+    this.runClock();
   }
 
   stopClock() {
     if (this.clockPausedAt) {
-      this.timeLeft = Math.max(0, 1 - (this.clockPausedAt - this.clockT0) / this.clockDur);
+      this.timeLeft = this.clockLeftMs(this.clockPausedAt) / this.clockDur;
       this.clockPausedAt = 0;
       return;
     }
     if (!this.clockLive) return;
     this.clockLive = false;
-    cancelAnimationFrame(this.clockRaf);
-    this.timeLeft = Math.max(0, 1 - (performance.now() - this.clockT0) / this.clockDur);
+    clearTimeout(this.clockTimer);
+    this.timeLeft = this.clockLeftMs() / this.clockDur;
+    this.setFill(this.timeLeft, 0); // freeze where it stopped
   }
 
   private hideClock() {

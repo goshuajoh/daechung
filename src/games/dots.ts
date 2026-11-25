@@ -244,7 +244,7 @@ export const dots: GameDef = {
     const score = 100 * Math.pow(Math.max(0, 1 - rel / 0.5), 1.2);
     return {
       score,
-      detail: guess === n ? `exactly <b>${n}</b>! did you count?!` : `there were <b>${n}</b> — you said ${guess} (${Math.round(rel * 100)}% off)`,
+      detail: guess === n ? `exactly <b>${n}</b>! did you count?!` : `there were <b>${n}</b>. you said ${guess}: ${rel < 0.06 ? 'so close' : rel < 0.15 ? 'pretty close' : rel < 0.35 ? (guess > n ? 'a bit high' : 'a bit low') : guess > n ? 'way too many' : 'way too few'}`,
     };
   },
 };
