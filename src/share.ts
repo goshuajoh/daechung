@@ -72,17 +72,28 @@ export function drawShareCard(c: ShareCard): HTMLCanvasElement {
   return cv;
 }
 
-export function canvasToBlob(cv: HTMLCanvasElement): Promise<Blob | null> {
-  return new Promise((resolve) => cv.toBlob((b) => resolve(b), 'image/png'));
+/**
+ * Build the PNG synchronously, so navigator.share() still runs inside the tap that asked
+ * for it (iOS Safari refuses to share after a slow async gap).
+ */
+function shareFile(card: ShareCard): File | null {
+  try {
+    const url = drawShareCard(card).toDataURL('image/png');
+    const bin = atob(url.slice(url.indexOf(',') + 1));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new File([bytes], 'daechung.png', { type: 'image/png' });
+  } catch {
+    return null;
+  }
 }
 
 /**
- * Share the picture + link with the OS share sheet where possible,
- * otherwise copy the text and download the image. Returns what happened.
+ * Share the picture + link with the OS share sheet where possible, otherwise copy the
+ * text and download the image. 'failed' means nothing worked (show the link instead).
  */
-export async function shareResult(card: ShareCard, text: string, link: string): Promise<'shared' | 'copied' | 'cancelled'> {
-  const blob = await canvasToBlob(drawShareCard(card));
-  const file = blob ? new File([blob], 'daechung.png', { type: 'image/png' }) : null;
+export async function shareResult(card: ShareCard, text: string, link: string): Promise<'shared' | 'copied' | 'cancelled' | 'failed'> {
+  const file = shareFile(card);
   const full = `${text}\n${link}`;
   try {
     if (file && navigator.canShare?.({ files: [file] })) {
@@ -95,16 +106,19 @@ export async function shareResult(card: ShareCard, text: string, link: string): 
     }
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return 'cancelled';
+    // NotAllowedError & co: fall back to copying
   }
+  let copied = false;
   try {
     await navigator.clipboard.writeText(full);
-  } catch { /* ignore */ }
-  if (blob) {
+    copied = true;
+  } catch { /* no clipboard access */ }
+  if (file) {
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    a.href = URL.createObjectURL(file);
     a.download = 'daechung.png';
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }
-  return 'copied';
+  return copied ? 'copied' : 'failed';
 }

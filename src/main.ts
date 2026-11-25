@@ -3,6 +3,7 @@ import { renderHome } from './home';
 import type { GameDef } from './lib/shell';
 import { startPractice, startRun } from './modes';
 import { startParty } from './party';
+import { renderProfile } from './profile';
 import { decodeChallenge, setPending } from './challenge';
 import { angle } from './games/angle';
 import { beat } from './games/beat';
@@ -14,8 +15,12 @@ import { stopwatch } from './games/stopwatch';
 import { pour } from './games/pour';
 import { center } from './games/center';
 import { color } from './games/color';
+import { brake } from './games/brake';
+import { halfway } from './games/halfway';
+import { bigger } from './games/bigger';
+import { tunnel } from './games/tunnel';
 
-export const games: GameDef[] = [angle, beat, cut, dots, trajectory, circle, stopwatch, pour, center, color];
+export const games: GameDef[] = [angle, beat, cut, dots, trajectory, circle, stopwatch, pour, center, color, brake, halfway, bigger, tunnel];
 
 const app = document.getElementById('app')!;
 let cleanup: (() => void) | null = null;
@@ -35,6 +40,7 @@ function route() {
   window.scrollTo(0, 0);
   if (path === 'daily' || path === 'run') cleanup = startRun(app, games, path === 'daily' ? 'daily' : 'quick', home);
   else if (path === 'party') cleanup = startParty(app, games, home);
+  else if (path === 'me') cleanup = renderProfile(app, games, home);
   else if (path.startsWith('practice/')) {
     const game = games.find((g) => g.id === path.slice(9));
     if (game) cleanup = startPractice(app, game, home);

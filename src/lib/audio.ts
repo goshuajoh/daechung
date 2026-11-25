@@ -77,6 +77,7 @@ class Sfx {
   }
 
   get now() {
+    if (this.muted) return this.ctx?.currentTime ?? 0;
     return this.ensure().currentTime;
   }
 
@@ -95,6 +96,7 @@ class Sfx {
   }
 
   tone(freq: number, dur: number, o: { type?: OscillatorType; vol?: number; to?: number; at?: number; attack?: number } = {}) {
+    if (this.muted) return;
     const c = this.ensure();
     const t = o.at ?? c.currentTime;
     const osc = c.createOscillator();
@@ -113,6 +115,7 @@ class Sfx {
   }
 
   noise(dur: number, o: { freq?: number; to?: number; q?: number; vol?: number; at?: number; type?: BiquadFilterType } = {}) {
+    if (this.muted) return;
     const c = this.ensure();
     const t = o.at ?? c.currentTime;
     const src = c.createBufferSource();

@@ -8,6 +8,8 @@ const KEY = 'daechung:progress';
 interface Progress {
   /** `${who}|${gameId}` → real (scored) rounds played */
   plays: Record<string, number>;
+  /** gameId → recent accuracies (newest last), for the profile page */
+  hist: Record<string, number[]>;
   xp: number;
   hat: string;
   streak: { last: number; count: number; best: number };
@@ -18,7 +20,7 @@ interface Progress {
   hints: Record<string, 1>;
 }
 
-const fresh = (): Progress => ({ plays: {}, xp: 0, hat: 'none', streak: { last: 0, count: 0, best: 0 }, days: {}, name: '', hints: {} });
+const fresh = (): Progress => ({ plays: {}, hist: {}, xp: 0, hat: 'none', streak: { last: 0, count: 0, best: 0 }, days: {}, name: '', hints: {} });
 
 let cache: Progress | null = null;
 
@@ -60,6 +62,29 @@ export function addPlay(gameId: string, who = '') {
   const k = `${who}|${gameId}`;
   p.plays[k] = (p.plays[k] ?? 0) + 1;
   save();
+}
+
+const HIST = 20;
+
+/** Remember a scored round (device owner only — party guests don't count). */
+export function recordScore(gameId: string, acc: number) {
+  const p = load();
+  const h = (p.hist[gameId] ??= []);
+  h.push(Math.round(acc));
+  if (h.length > HIST) h.splice(0, h.length - HIST);
+  save();
+}
+
+export function history(gameId: string): number[] {
+  return load().hist[gameId] ?? [];
+}
+
+export function allDays(): Record<number, number> {
+  return load().days;
+}
+
+export function bestStreak() {
+  return load().streak.best;
 }
 
 export function forgetTutorials() {

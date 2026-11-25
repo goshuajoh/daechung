@@ -1,7 +1,10 @@
 // Offline support. Pages: network first (always fresh when online), cached copy offline.
 // Hashed assets + fonts: cache first. The build stamps BUILD so each deploy gets a fresh cache.
 const CACHE = 'daechung-__BUILD__';
-const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './favicon.svg'];
+// the build replaces the empty list with this deploy's hashed JS/CSS, so the very first
+// visit already has everything needed to start offline
+const ASSETS = /*__ASSETS__*/ [];
+const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './favicon.svg', ...ASSETS];
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
@@ -24,8 +27,10 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(
       fetch(req)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put('./index.html', copy));
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put('./index.html', copy));
+          }
           return res;
         })
         .catch(() => caches.match('./index.html').then((r) => r || caches.match('./'))),

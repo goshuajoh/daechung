@@ -80,7 +80,10 @@ export class Stage {
   activeFps: number;
   private maxDpr: number;
   private born = performance.now();
-  private lastDraw = -1e9;
+  /** When this stage really last drew (for dt). */
+  private lastDraw = -1;
+  /** Draw on the very next tick regardless of the frame-rate cap. */
+  private force = true;
   private activeUntil = 0;
   private onScreen = true;
   /** Backing store released (see sleep()). */
@@ -99,8 +102,9 @@ export class Stage {
     this.pen = new Pen(this.ctx);
     this.ro = new ResizeObserver(() => this.resize());
     this.ro.observe(this.canvas);
-    this.io = new IntersectionObserver(([e]) => {
-      this.onScreen = e.isIntersecting;
+    this.io = new IntersectionObserver((entries) => {
+      // several entries can queue up during a fast scroll; the newest one is the truth
+      this.onScreen = entries[entries.length - 1].isIntersecting;
       if (this.onScreen) kick();
     });
     this.io.observe(this.canvas);
@@ -123,7 +127,7 @@ export class Stage {
     this._draw = fn;
     if (fn) {
       if (this.asleep) this.wake();
-      this.lastDraw = -1e9;
+      this.force = true;
       kick();
     }
   }
@@ -136,7 +140,6 @@ export class Stage {
   /** Run at the active frame rate for a while, e.g. while something flies across the screen. */
   boost(ms = 900) {
     this.activeUntil = Math.max(this.activeUntil, performance.now() + ms);
-    this.lastDraw = Math.min(this.lastDraw, performance.now() - 1000);
     kick();
   }
 
@@ -172,7 +175,7 @@ export class Stage {
     this.canvas.width = Math.max(1, Math.round(w * dpr));
     this.canvas.height = Math.max(1, Math.round(h * dpr));
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    this.lastDraw = -1e9; // resizing clears the canvas, so redraw on the next tick
+    this.force = true; // resizing clears the canvas, so redraw on the next tick
     kick();
   }
 
@@ -182,9 +185,10 @@ export class Stage {
     const active = now < this.activeUntil;
     const fps = active ? this.activeFps : now - lastInput > IDLE_AFTER ? Math.min(this.fps, IDLE_FPS) : this.fps;
     const interval = 1000 / fps;
-    const since = now - this.lastDraw;
+    const since = this.lastDraw < 0 ? interval : now - this.lastDraw;
     // small tolerance so a 30fps target lands on every 2nd 60Hz frame (or every 4th at 120Hz)
-    if (since < interval - 3) return this.lastDraw + interval;
+    if (!this.force && since < interval - 3) return this.lastDraw + interval;
+    this.force = false;
     const dt = Math.min(0.1, since / 1000);
     this.lastDraw = now;
     const { ctx } = this;

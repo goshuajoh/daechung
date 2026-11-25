@@ -131,6 +131,7 @@ export const stopwatch: GameDef = {
     };
 
     const canvas = stage.canvas;
+    let shhTimer = 0;
     let tapHandler: (stamp: number) => void = () => {};
     const pd = (e: PointerEvent) => tapHandler(e.timeStamp);
     const kd = (e: KeyboardEvent) => {
@@ -154,7 +155,7 @@ export const stopwatch: GameDef = {
       });
       g.setMood('listen');
       g.say(g.tutorial ? `tap again at <b>${label}</b>!` : `shh… counting to <b>${label}</b>…`);
-      if (!g.tutorial) setTimeout(() => phase === 'run' && sfx.shh(), PEEK * 1000);
+      if (!g.tutorial) shhTimer = window.setTimeout(() => phase === 'run' && sfx.shh(), PEEK * 1000);
       // stop (or give up after a long while)
       const timedOut = await g.until<boolean>((done) => {
         tapHandler = (stamp) => {
@@ -167,6 +168,7 @@ export const stopwatch: GameDef = {
       });
       if (timedOut) stoppedAt = (performance.now() - t0) / 1000;
     } finally {
+      clearTimeout(shhTimer);
       tapHandler = () => {};
       canvas.removeEventListener('pointerdown', pd);
       window.removeEventListener('keydown', kd);

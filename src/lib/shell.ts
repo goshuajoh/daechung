@@ -1,7 +1,7 @@
 import { Stage, stayLively } from './stage';
 import { drawKongi, type Mood } from './kongi';
 import { sfx } from './audio';
-import { addPlay, firstTime, hat, tier, type Tier } from './progress';
+import { addPlay, firstTime, hat, recordScore, tier, type Tier } from './progress';
 import { icons } from './icons';
 import { clamp, pick, rand, seedRandom } from './rng';
 import { BLUSH, BUTTER, LILAC, MINT, PASTELS, PEACH, SKY } from './palette';
@@ -211,7 +211,7 @@ export class Shell {
   }
 
   private onKey(e: KeyboardEvent) {
-    if (e.key !== 'Enter') return;
+    if (e.key !== 'Enter' || e.repeat) return;
     const b = this.actions.querySelector<HTMLButtonElement>('.btn.primary:not([disabled])');
     if (b) {
       e.preventDefault();
@@ -549,15 +549,18 @@ export class Shell {
     const wantHelp = await Promise.race([
       this.wait(1700).then(() => false),
       this.until<boolean>((done) => {
-        card.addEventListener('pointerdown', (e) => {
-          if (e.target === help) return;
-          done(false);
-        });
-        help.addEventListener('click', (e) => {
+        const skip = (e: PointerEvent) => e.target !== help && done(false);
+        const ask = (e: MouseEvent) => {
           e.stopPropagation();
           sfx.pop();
           done(true);
-        });
+        };
+        card.addEventListener('pointerdown', skip);
+        help.addEventListener('click', ask);
+        return () => {
+          card.removeEventListener('pointerdown', skip);
+          help.removeEventListener('click', ask);
+        };
       }),
     ]);
     card.classList.add('bye');
@@ -645,6 +648,7 @@ export class Shell {
         }
         addPlay(game.id, this.who);
         const acc = Math.round(clamp(res.score, 0, 100));
+        if (!this.opts.player) recordScore(game.id, acc);
         const bonus = !this.timed ? 0 : game.untimed ? Math.round((10 * acc) / 100) : Math.round((20 * (this.timeLeft ?? 0) * acc) / 100);
         results.push({ game, acc, bonus, detail: res.detail });
         this.total += acc + bonus;

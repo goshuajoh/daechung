@@ -153,13 +153,18 @@ export const pour: GameDef = {
     if (g.tutorial) g.say(`<b>press and hold</b> anywhere to pour. let go when the drink reaches the dashed line (${target}%).`, 'focus');
     else g.say(`pour the ${drink.name} to exactly <b>${target}%</b> full. hold to pour!`, 'focus');
     const stage = g.stage;
-    let pourT = 0;
+    // Fill is a pure function of how long you've held (never of frame rate):
+    // starts as a trickle at 35% speed, ramps to full speed over ~0.46s.
+    let pourStart = 0;
+    const RAMP = 0.65 / 1.4;
+    const filled = (tau: number) => {
+      const a = Math.min(Math.max(0, tau), RAMP);
+      return Math.min(1, speed * (0.35 * a + 0.7 * a * a) + speed * Math.max(0, tau - RAMP));
+    };
     stage.draw = (pen, w, h, t, dt) => {
       const cup = layout(w, h);
       if (pouring) {
-        pourT += dt;
-        // starts as a trickle, then glugs
-        fill = Math.min(1, fill + speed * dt * Math.min(1, 0.35 + pourT * 1.4));
+        fill = filled((performance.now() - pourStart) / 1000);
         if (fill >= 1) {
           drops.push({ x: cup.x + (Math.random() < 0.5 ? 0 : cup.w), y: cup.y, vx: (Math.random() - 0.5) * 60, vy: -20, life: 1 });
         }
@@ -217,29 +222,30 @@ export const pour: GameDef = {
 
     const canvas = stage.canvas;
     let release: (() => void) | null = null;
-    const startPour = () => {
+    const startPour = (stamp: number) => {
       if (started) return;
       started = true;
       pouring = true;
-      pourT = 0;
+      pourStart = stamp;
       sfx.noise(0.25, { freq: 700, q: 0.5, vol: 0.15 });
       g.setMood('wow');
     };
-    const stopPour = () => {
+    const stopPour = (e?: Event) => {
       if (!pouring) return;
       pouring = false;
+      fill = filled(((e?.timeStamp ?? performance.now()) - pourStart) / 1000);
       release?.();
     };
     const pd = (e: PointerEvent) => {
       canvas.setPointerCapture(e.pointerId);
-      startPour();
+      startPour(e.timeStamp);
     };
     const kd = (e: KeyboardEvent) => {
       if (e.key !== ' ' || e.repeat) return;
       e.preventDefault();
-      startPour();
+      startPour(e.timeStamp);
     };
-    const ku = (e: KeyboardEvent) => e.key === ' ' && stopPour();
+    const ku = (e: KeyboardEvent) => e.key === ' ' && stopPour(e);
     canvas.addEventListener('pointerdown', pd);
     canvas.addEventListener('pointerup', stopPour);
     canvas.addEventListener('pointercancel', stopPour);
@@ -258,6 +264,7 @@ export const pour: GameDef = {
     } finally {
       g.stopClock();
       clearInterval(gurgle);
+      if (pouring) fill = filled((performance.now() - pourStart) / 1000);
       pouring = false;
       canvas.removeEventListener('pointerdown', pd);
       canvas.removeEventListener('pointerup', stopPour);

@@ -19,11 +19,17 @@ const LAUNCH = Date.UTC(2026, 10, 24);
 export function today() {
   const d = new Date();
   const n = Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - LAUNCH) / 864e5) + 1;
-  const seed = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
-  return { n: Math.max(1, n), seed };
+  const day = Math.max(1, n);
+  return { n: day, seed: dailySeed(day) };
 }
 
-/** One of each game (seeded order), difficulty ramping up through the run. */
+/** The puzzles come from the daily *number*, so a friend a timezone away can still play yours. */
+export const dailySeed = (n: number) => Math.imul(n, 2654435761) ^ 0x5eed;
+
+/** Games a run is made of. With more games than this, each day/run picks a different mix. */
+export const RUN_LENGTH = 10;
+
+/** Distinct games (seeded order), difficulty ramping up through the run. */
 export function buildRun(games: GameDef[], count: number, seed: number): Step[] {
   seedRandom(seed);
   const order = shuffle([...games]);
@@ -99,6 +105,21 @@ async function awardXp(g: Shell, card: HTMLElement, gain: number) {
     }
   }
   bar.style.width = `${(after.into / after.need) * 100}%`;
+}
+
+/** Sharing and copying both failed: show the link so it can be copied by hand. */
+async function showLink(g: Shell, link: string) {
+  const m = el('div', 'name-card', `<b>send this link to a friend</b><input readonly aria-label="challenge link" value="${esc(link)}" />`);
+  g.overlay.appendChild(m);
+  const input = m.querySelector('input')!;
+  input.addEventListener('focus', () => input.select());
+  setTimeout(() => input.select(), 50);
+  g.say("couldn't open sharing here. press and hold the link to copy it!", 'happy');
+  try {
+    await g.choose(['done'], 0);
+  } finally {
+    m.remove();
+  }
 }
 
 /** Ask once what friends should call you (for challenge links). */
@@ -177,12 +198,16 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
   let g: Shell | null = null;
   const play = async () => {
     g?.destroy();
-    const day = today();
-    const seed = kind === 'daily' ? day.seed : (Math.random() * 1e9) | 0;
-    const steps = buildRun(games, games.length, seed);
-    const label = kind === 'daily' ? `daily #${day.n}` : 'quick run';
+    const now = today();
     const pending = kind === 'daily' ? getPending() : null;
-    const rival: Challenge | null = pending && pending.day === day.n ? pending : null;
+    // a friend's challenge from yesterday/tomorrow (timezones!) still plays *their* puzzles
+    const linkDay = pending && Math.abs(pending.day - now.n) <= 1 ? pending.day : null;
+    const day = linkDay ? { n: linkDay, seed: dailySeed(linkDay) } : now;
+    const isToday = day.n === now.n;
+    const seed = kind === 'daily' ? day.seed : (Math.random() * 1e9) | 0;
+    const steps = buildRun(games, Math.min(RUN_LENGTH, games.length), seed);
+    const label = kind === 'daily' ? `daily #${day.n}` : 'quick run';
+    const rival: Challenge | null = linkDay ? pending : null;
     const color = kind === 'daily' ? BUTTER : LILAC;
     g = new Shell(
       app,
@@ -211,8 +236,11 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
       pen.ctx.restore();
       pen.text(`${i + 1}. ${game.name}`, w / 2, y + bh + 30, { size: 24 });
     };
-    if (rival) shell.say(`<b>${esc(rival.name)}</b> challenged you! they scored <b>${rival.total}</b> on today's run. same puzzles. go get 'em!`, 'cheer');
-    else if (pending) shell.say(`that challenge was for daily #${pending.day}, but today's puzzles are new. play today's and send one back!`, 'happy');
+    if (rival) shell.say(`<b>${esc(rival.name)}</b> challenged you! they scored <b>${rival.total}</b> on daily #${rival.day}. same puzzles. go get 'em!`, 'cheer');
+    else if (pending) shell.say(`that challenge was for daily #${pending.day}, which has expired. play today's and send one back!`, 'happy');
+    else if (kind === 'daily' && isIOS() && !standalone() && firstTime('a2hs'))
+      // before the first daily (not after!), because the home-screen app keeps its own progress on iPhone
+      shell.say("tip: tap <b>Share → Add to Home Screen</b> first, then play from there. the home-screen app keeps its own streak!", 'happy');
     else
       shell.say(
         kind === 'daily'
@@ -235,7 +263,8 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
     const isBest = saveScore(key, total);
     const best = getBest(key) ?? total;
     const ratio = total / max;
-    const streak = kind === 'daily' ? recordDaily(day.n, total) : null;
+    // only today's daily counts toward the streak (a friend's yesterday-run still scores)
+    const streak = kind === 'daily' && isToday ? recordDaily(day.n, total) : null;
     if (pending) setPending(null);
     const won = rival ? total > rival.total : false;
     const head = rival
@@ -273,10 +302,6 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
     } catch {
       return;
     }
-    // after the first finished daily on an iPhone browser, suggest keeping 대충 on the home screen
-    if (kind === 'daily' && isIOS() && !standalone() && firstTime('a2hs')) {
-      shell.say('pro tip: tap <b>Share → Add to Home Screen</b> and I\'ll be one tap away tomorrow.', 'happy');
-    }
     const text = `대충 ${label}: ${total}/${max} “${runRank(ratio)}”${rival ? ` (vs ${rival.name} ${rival.total})` : ''}`;
     for (;;) {
       let i: number;
@@ -305,6 +330,13 @@ export function startRun(app: HTMLElement, games: GameDef[], kind: 'daily' | 'qu
         );
         if (res === 'copied') shell.say('link copied and picture saved! paste it in the group chat.', 'happy');
         else if (res === 'shared') shell.say('sent! now we wait…', 'cheer');
+        else if (res === 'failed') {
+          try {
+            await showLink(shell, link);
+          } catch {
+            return;
+          }
+        }
       } else if (i === 1) return void play();
       else return exit();
     }

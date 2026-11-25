@@ -4,7 +4,7 @@
 
 **Play: https://goshuajoh.github.io/daechung/**
 
-Ten tiny hand-drawn mini-games that test how good your eyeball is, hosted by **Kongi (콩이)**, a little bean-sprout mochi.
+Fourteen tiny hand-drawn mini-games that test how good your eyeball is, hosted by **Kongi (콩이)**, a little bean-sprout mochi.
 
 ![home screen](docs/preview-home.png)
 
@@ -12,8 +12,8 @@ Ten tiny hand-drawn mini-games that test how good your eyeball is, hosted by **K
 
 ## Ways to play
 
-- **Daily 대충**: all 10 mini-games back to back, each on a countdown. The puzzles come from today's date, so everyone gets the same run, which is what makes challenge links work.
-- **Quick Run**: same format, random every time.
+- **Daily 대충**: 10 of the 14 mini-games back to back, each on a countdown. The mix and the puzzles come from the daily number, so everyone gets the same run, which is what makes challenge links work. A friend's link from a day ahead or behind (timezones) still plays their puzzles.
+- **Quick Run**: same format, a random 10 every time.
 - **Party**: pass the phone. 2–8 players get the identical run (5 or 10 games), then there's a podium and a "closest eyeball per game" list.
 - **Practice**: any single game, 5 rounds that get harder, no clock.
 
@@ -56,6 +56,10 @@ Keep the Beat flashes the whole stage and pulses rings on every beat, so it work
 | **Fill It Up** 붓기 | Hold to pour; let go at exactly N% full. One pour. |
 | **Dead Center** 중심 | Tap the exact center of a shape. Later ones only show an arc. |
 | **Color Recall** 색깔 | Memorize a colour, then find it again on a hue wheel. |
+| **Brake!** 주차 | Tap once to brake a rolling car so it slides to a stop right on the line. |
+| **Halfway** 반 | Tap the exact middle of a squiggly road. Later roads hide extra wiggles in one half. |
+| **Bigger?** 더 큰 거 | Six quick-fire pairs of different shapes: tap the one with more area. |
+| **Tunnel** 터널 | A ball rolls into a tunnel at a steady speed. Tap when it's under the flag. |
 
 Best scores are saved in your browser.
 
@@ -82,6 +86,10 @@ No image assets and no emoji: everything is drawn in code.
 - DOM bits (buttons, cards, speech bubble) get the same boil from an SVG `feTurbulence` filter that's re-seeded from JS.
 - Sounds are synthesized with Web Audio in `src/lib/audio.ts`. There are no audio files.
 - Fonts: [Jua](https://fonts.google.com/specimen/Jua) and [Gaegu](https://fonts.google.com/specimen/Gaegu).
+
+## Install & offline
+
+It's a PWA: add it to your home screen (Chrome shows an install button; on iPhone use Share → Add to Home Screen) and it runs full-screen with its own Kongi icon. A service worker precaches the build, so after the first visit everything, fonts included, works offline. On iPhone the home-screen app keeps its own storage, separate from Safari, so the tip suggests installing *before* your first Daily.
 
 ## Keeping phones cool
 

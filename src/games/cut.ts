@@ -215,7 +215,9 @@ export const cut: GameDef = {
 
   async play(g: Shell) {
     const born = g.stage.time;
-    const food = pick(FOODS.filter((f) => f !== lastFood));
+    // in seeded runs pick from the full list so every player gets the same food;
+    // in practice, avoid repeating the last one
+    const food = g.timed && !g.tutorial ? pick(FOODS) : pick(FOODS.filter((f) => f !== lastFood));
     lastFood = food;
     const target = pickPercent();
     const lenK = rand(0.6, 0.86);

@@ -1,14 +1,14 @@
 import { Stage } from './lib/stage';
 import { drawKongi, type Mood } from './lib/kongi';
 import { getBest } from './lib/store';
-import { dayScore, forgetTutorials, hat, levelOf, setHat, streak, xp } from './lib/progress';
-import { HATS } from './lib/hats';
+import { dayScore, forgetTutorials, hat, levelOf, streak, xp } from './lib/progress';
 import { getPending } from './challenge';
+import { closet } from './closet';
 import { canPrompt, isIOS, onInstallChange, promptInstall, standalone } from './install';
 import { icons } from './lib/icons';
 import { esc, muteButton, type GameDef } from './lib/shell';
 import { sfx } from './lib/audio';
-import { today } from './modes';
+import { RUN_LENGTH, today } from './modes';
 import { BERRY, BUTTER, INK, LILAC, PINK, WHITE } from './lib/palette';
 import type { Pen } from './lib/pen';
 
@@ -57,7 +57,7 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
   const lv = levelOf(xp());
   const streakNow = streak(day.n);
   const pending = getPending();
-  const challenge = pending && pending.day === day.n ? pending : null;
+  const challenge = pending && Math.abs(pending.day - day.n) <= 1 ? pending : null;
   // last 7 dailies: played or not
   const week = Array.from({ length: 7 }, (_, k) => day.n - 6 + k)
     .map((n) => `<i class="${n === day.n ? 'today ' : ''}${n < 1 ? 'pre' : dayScore(n) != null ? 'done' : ''}"></i>`)
@@ -74,19 +74,19 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
         <p class="roman"><b>daechung</b> · <i>adv.</i> roughly, more or less, by eye</p>
         <p class="tag">${games.length} tiny games for people who eyeball everything.</p>
         <div class="me">
-          <button class="lvl" aria-label="level ${lv.level}, open the hat closet"><b>Lv ${lv.level}</b><i><u style="width:${(lv.into / lv.need) * 100}%"></u></i><span>${lv.into}/${lv.need} xp</span></button>
+          <button class="lvl" aria-label="level ${lv.level}, open your profile"><b>Lv ${lv.level}</b><i><u style="width:${(lv.into / lv.need) * 100}%"></u></i><span>${lv.into}/${lv.need} xp</span></button>
           <span class="streak ${streakNow ? '' : 'cold'}">${icons.flame}<b>${streakNow ? `${streakNow}-day streak` : 'start a streak!'}</b></span>
         </div>
       </div>
     </header>
-    ${challenge ? `<button class="challenge-ribbon" data-go="daily">${icons.flame}<span><b>${esc(challenge.name)}</b> challenged you: <b>${challenge.total}</b> on today's daily. <u>beat it!</u></span></button>` : ''}
+    ${challenge ? `<button class="challenge-ribbon" data-go="daily">${icons.flame}<span><b>${esc(challenge.name)}</b> challenged you: <b>${challenge.total}</b> on daily #${challenge.day}. <u>beat it!</u></span></button>` : ''}
     <div class="modes">
       <button class="mode m-daily" style="--c:${BUTTER};--tilt:-1deg" data-go="daily">
         <div class="mode-art"></div>
         <div class="mode-text">
           <small>daily #${day.n}</small>
           <b>Daily 대충</b>
-          <p>${games.length} mini-games against the clock. Same ones for everyone today.</p>
+          <p>${RUN_LENGTH} mini-games against the clock. Same ones for everyone today.</p>
           <span class="week" aria-label="last 7 days">${week}</span>
           <span class="best">${dailyBest == null ? 'not played today!' : `today: <b>${dailyBest}</b>`}</span>
         </div>
@@ -172,7 +172,7 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
   const openCloset = () => closet(() => (mood = 'cheer', moodUntil = kongi.time + 1.6));
   root.querySelector('.lvl')!.addEventListener('click', () => {
     sfx.pop();
-    openCloset();
+    go('me');
   });
   root.querySelector('.challenge-ribbon')?.addEventListener('click', () => {
     sfx.pop();
@@ -215,43 +215,4 @@ export function renderHome(parent: HTMLElement, games: GameDef[], go: (hash: str
     document.querySelector<HTMLButtonElement>('.closet .done')?.click();
     root.remove();
   };
-}
-
-
-/** Hat closet: pick from the hats you've unlocked. */
-function closet(onPick: () => void) {
-  const lv = levelOf(xp()).level;
-  const m = document.createElement('div');
-  m.className = 'closet-wrap';
-  m.innerHTML = `<div class="closet" role="dialog" aria-label="Kongi's hats">
-      <b>Kongi's hats</b>
-      <p>level up to unlock more. you're <b>Lv ${lv}</b>.</p>
-      <div class="hats">${HATS.map((h) => `<button class="hat${h.id === hat() ? ' on' : ''}" data-id="${h.id}" ${h.level > lv ? 'disabled' : ''}><span class="hat-art"></span><em>${h.level > lv ? `Lv ${h.level}` : h.name}</em></button>`).join('')}</div>
-      <button class="btn primary done"><span>done</span></button>
-    </div>`;
-  // on <body>: a transformed ancestor (the screen's entrance animation) would break position: fixed
-  document.body.appendChild(m);
-  const stages: Stage[] = [];
-  m.querySelectorAll<HTMLButtonElement>('.hat').forEach((b) => {
-    const id = b.dataset.id!;
-    const locked = b.disabled;
-    const st = new Stage(b.querySelector<HTMLElement>('.hat-art')!, 'hat-canvas', { fps: 8 });
-    st.draw = (pen, w, h, t) => drawKongi(pen, w / 2, h - 3, Math.min(w * 0.62, h * 0.66), locked ? 'idle' : 'happy', t, { hat: id, body: locked ? '#e9e0d2' : undefined });
-    stages.push(st);
-    b.addEventListener('click', () => {
-      setHat(id);
-      sfx.pop();
-      m.querySelectorAll('.hat').forEach((x) => x.classList.toggle('on', x === b));
-      onPick();
-    });
-  });
-  const close = () => {
-    stages.forEach((s) => s.destroy());
-    m.remove();
-  };
-  m.querySelector('.done')!.addEventListener('click', () => {
-    sfx.click();
-    close();
-  });
-  m.addEventListener('click', (e) => e.target === m && close());
 }
