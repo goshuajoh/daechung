@@ -89,12 +89,12 @@ export function muteButton(): HTMLButtonElement {
   return b;
 }
 
-const STICKERS: [number, string, string, string][] = [
-  [95, '대박!!', 'daebak', MINT],
-  [80, 'nice~', 'so close', BUTTER],
-  [60, 'not bad', 'pretty good', SKY],
-  [35, 'hmm..', 'getting there', PEACH],
-  [0, 'oops', 'next one!', LILAC],
+const STICKERS: [number, string, string[], string][] = [
+  [95, '대박!!', ['daebak', 'are you a robot?', 'unreal eyes', 'chef’s kiss', 'Kongi is shook'], MINT],
+  [80, 'nice~', ['so close', 'super sharp', 'nicely done', 'eyes of a hawk', 'smooth'], BUTTER],
+  [60, 'not bad', ['pretty good', 'solid', 'respectable', 'getting the hang of it'], SKY],
+  [35, 'hmm..', ['getting there', 'close-ish', 'very 대충', 'shake it off'], PEACH],
+  [0, 'oops', ['next one!', 'it happens', 'Kongi believes in you', 'we don’t talk about that one'], LILAC],
 ];
 
 interface Confetto { x: number; y: number; vy: number; vx: number; r: number; vr: number; kind: number; c: string; s: number }
@@ -664,7 +664,9 @@ export class Shell {
   }
 
   private async sticker(acc: number, bonus: number, detail: string, last: boolean, i: number) {
-    const [, word, sub, color] = STICKERS.find(([min]) => acc >= min)!;
+    const [, word, subs, color] = STICKERS.find(([min]) => acc >= min)!;
+    // Math.random on purpose: flavour text must not consume the seeded game randomness
+    const sub = subs[Math.floor(Math.random() * subs.length)];
     stayLively();
     const s = el('div', 'sticker', `<b>0</b><span>${word}</span>${bonus ? `<em>+${bonus} speed</em>` : ''}`);
     s.style.setProperty('--sc', color);
